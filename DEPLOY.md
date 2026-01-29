@@ -82,6 +82,53 @@ shop.hhourssop.co.ke   { reverse_proxy localhost:3003 }
 
 ---
 
+## Server one-time setup (209.38.43.31)
+
+Do this **once** on the server after cloning the repo.
+
+1. **Clone** (if not already):  
+   `git clone <your-repo-url> /home/ubuntu/uzahX`  
+   (Use the same path you will set as `DEPLOY_PATH` in GitHub secrets.)
+
+2. **Secrets file** – Create `.env` on the server (not in git) with real values:
+   ```bash
+   cd /home/ubuntu/uzahX   # or your DEPLOY_PATH
+   cp .env.example .env
+   # Edit .env: set JWT_SECRET, JWT_REFRESH_SECRET, ENCRYPTION_KEY (strong random),
+   # CLOUDINARY_* or S3_* for media. Do not commit .env.
+   ```
+   Production URLs and CORS come from `.env.deploy` (committed in git).
+
+3. **Reverse proxy (HTTPS)** – Point api/admin/shop subdomains at this server and proxy to localhost:3004, 3005, 3003 (see section above). Use Caddy, Nginx, or Traefik with Let's Encrypt.
+
+4. **First run** (optional, to verify):
+   ```bash
+   chmod +x scripts/deploy.sh
+   ./scripts/deploy.sh
+   ```
+
+After that, every **push to main** (or manual "Run workflow") will SSH to the server, `git pull`, and run `./scripts/deploy.sh`. The API in production does **not** accept localhost origins (CORS is restricted to the domains in `.env.deploy`).
+
+---
+
+## GitHub Actions secrets (for automated deploy)
+
+In the repo: **Settings → Secrets and variables → Actions → New repository secret**, add:
+
+| Secret name      | Example value           | Description |
+|------------------|-------------------------|-------------|
+| `DEPLOY_HOST`    | `209.38.43.31`          | Server IP or hostname |
+| `DEPLOY_USER`    | `ubuntu`                | SSH user that can run docker |
+| `SSH_PRIVATE_KEY`| *(full PEM contents)*   | Private key for that user (paste entire key including `-----BEGIN ... -----END ...`) |
+| `DEPLOY_PATH`    | `/home/ubuntu/uzahX`    | Path where the repo is cloned on the server |
+
+- **DEPLOY_PATH** must match where you cloned the repo. The workflow runs `cd $DEPLOY_PATH`, `git pull`, then `./scripts/deploy.sh`.
+- **SSH_PRIVATE_KEY**: Paste the **private** key content. The server must have the matching **public** key in `~/.ssh/authorized_keys` for `DEPLOY_USER`.
+
+No app secrets (JWT, Cloudinary, etc.) go in GitHub – those stay in `.env` on the server.
+
+---
+
 ## Automating deploy (CI/CD)
 
 GitHub Actions workflows in `.github/workflows/` handle **dependencies** and **deploy** so you don’t have to remember `pnpm install` or run deploy by hand.
@@ -98,19 +145,7 @@ Docker builds (e.g. when you run `./scripts/deploy.sh` with `--build`) run `pnpm
 
 ### Deploy workflow
 
-**Deploy** (`.github/workflows/deploy.yml`) runs your deploy script on the server over SSH.
-
-1. In the repo: **Settings → Secrets and variables → Actions**, add:
-   - `DEPLOY_HOST` – server hostname or IP  
-   - `DEPLOY_USER` – SSH user (e.g. `ubuntu`)  
-   - `SSH_PRIVATE_KEY` – full private key (PEM) for that user  
-   - `DEPLOY_PATH` – path to the repo on the server (e.g. `/home/ubuntu/uzahX`)
-
-2. Trigger:
-   - **Manual:** Actions → Deploy → Run workflow  
-   - **On push to main:** In `deploy.yml`, uncomment the `push: branches: [main]` block
-
-The workflow SSHs to the server, runs `git pull` and `./scripts/deploy.sh`. That runs `docker compose --env-file .env.deploy up -d --build`, which rebuilds images (and runs `pnpm install` inside them) and restarts containers.
+**Deploy** (`.github/workflows/deploy.yml`): **Trigger** – every push to `main`, or manually via Actions → Deploy → Run workflow. **Steps** – SSH to the server → `cd DEPLOY_PATH` → `git pull` → `./scripts/deploy.sh`. On the server, `deploy.sh` loads `.env` (secrets) and runs `docker compose --env-file .env.deploy up -d --build`, so containers get production URLs and no localhost CORS.
 
 ### One-line summary
 

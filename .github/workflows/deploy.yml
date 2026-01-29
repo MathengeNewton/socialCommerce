@@ -1,19 +1,19 @@
-# Deploy: run your deploy script on the server via SSH.
+# Deploy to production server via SSH (git pull + ./scripts/deploy.sh).
 #
-# Setup (Settings → Secrets and variables → Actions):
-#   DEPLOY_HOST    – server hostname or IP
-#   DEPLOY_USER   – SSH user (e.g. ubuntu)
-#   SSH_PRIVATE_KEY – private key for SSH (full PEM content)
-#   DEPLOY_PATH   – repo path on server (e.g. /home/ubuntu/uzahX)
+# GitHub Secrets (Settings → Secrets and variables → Actions):
+#   DEPLOY_HOST      = 209.38.43.31
+#   DEPLOY_USER      = ubuntu          (or your SSH user)
+#   SSH_PRIVATE_KEY  = contents of your private key (PEM, full file)
+#   DEPLOY_PATH      = /home/ubuntu/uzahX   (path where repo is cloned on server)
 #
-# Trigger: manual (Run workflow) or on push to main (uncomment below).
+# Trigger: manual (Run workflow) or on every push to main.
 
 name: Deploy
 
 on:
   workflow_dispatch: {}
-  # push:
-  #   branches: [main]
+  push:
+    branches: [main]
 
 jobs:
   deploy:
@@ -29,4 +29,6 @@ jobs:
             set -e
             cd "${{ secrets.DEPLOY_PATH }}"
             git pull
+            chmod +x scripts/deploy.sh 2>/dev/null || true
             ./scripts/deploy.sh
+          script_stop: true

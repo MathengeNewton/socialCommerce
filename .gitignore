@@ -9,7 +9,7 @@ node_modules/
 .env.local
 .env.*.local
 .env.development
-.env.deploy
+# .env.deploy is committed (production URLs only, no secrets)
 .env.production
 !.env.example
 
