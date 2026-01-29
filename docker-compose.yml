@@ -1,3 +1,7 @@
+# Project name: keeps this stack isolated from others on the same host (e.g. tosha-city).
+# Host ports: 3003 shop, 3004 api, 3005 admin, 5434 postgres, 6379 redis, 9000/9001 minio.
+name: hhourssop
+
 services:
   postgres:
     image: postgres:16-alpine
