@@ -1,0 +1,163 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: social-commerce-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: social_commerce
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: social-commerce-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: social-commerce-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  api:
+    build:
+      context: .
+      dockerfile: ./services/api/Dockerfile
+    container_name: social-commerce-api
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/social_commerce
+      REDIS_URL: redis://redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_ACCESS_KEY: minioadmin
+      S3_SECRET_KEY: minioadmin
+      S3_BUCKET: media
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-change-me-in-production}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-default-key-change-me}
+      MEDIA_STORAGE: ${MEDIA_STORAGE:-cloudinary}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      CLOUDINARY_UPLOAD_FOLDER: ${CLOUDINARY_UPLOAD_FOLDER:-social-commerce}
+      NODE_ENV: ${NODE_ENV:-development}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3005,http://localhost:3003}
+      PORT: 3000
+    ports:
+      - "3004:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ./services/api/src:/app/services/api/src
+      - ./services/api/prisma:/app/services/api/prisma
+      - ./services/api/test:/app/services/api/test
+      - ./services/api/package.json:/app/services/api/package.json
+      - ./services/api/tsconfig.json:/app/services/api/tsconfig.json
+      - ./services/api/jest.config.js:/app/services/api/jest.config.js
+      - ./packages/shared:/app/packages/shared
+      - /app/node_modules
+    command: /app/services/api/start-dev.sh
+
+  worker:
+    build:
+      context: .
+      dockerfile: ./services/worker/Dockerfile
+    container_name: social-commerce-worker
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/social_commerce
+      REDIS_URL: redis://redis:6379
+      NODE_ENV: ${NODE_ENV:-development}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./services/worker/src:/app/services/worker/src
+      - ./services/worker/package.json:/app/services/worker/package.json
+      - ./services/worker/tsconfig.json:/app/services/worker/tsconfig.json
+      - ./services/api/prisma:/app/services/api/prisma
+      - ./services/api/src:/app/services/api/src
+      - ./packages/shared:/app/packages/shared
+      - /app/node_modules
+    command: sh -c "cd /app && pnpm install --no-frozen-lockfile && cd services/api && pnpm exec prisma generate && cd ../.. && pnpm --filter worker dev"
+
+  admin_web:
+    build:
+      context: .
+      dockerfile: ./apps/admin/Dockerfile
+    container_name: social-commerce-admin
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3004}
+      NODE_ENV: ${NODE_ENV:-development}
+    ports:
+      - "3005:3000"
+    depends_on:
+      - api
+    volumes:
+      - ./apps/admin:/app/apps/admin
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/admin/node_modules
+      - /app/apps/admin/.next
+    command: sh -c "cd /app && pnpm --filter admin dev"
+
+  shop_web:
+    build:
+      context: .
+      dockerfile: ./apps/shop/Dockerfile
+    container_name: social-commerce-shop
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3004}
+      NEXT_PUBLIC_SHOP_DOMAIN: ${NEXT_PUBLIC_SHOP_DOMAIN:-localhost:3003}
+      NODE_ENV: ${NODE_ENV:-development}
+    ports:
+      - "3003:3000"
+    depends_on:
+      - api
+    volumes:
+      - ./apps/shop:/app/apps/shop
+      - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/shop/node_modules
+      - /app/apps/shop/.next
+    command: sh -c "cd /app && pnpm --filter shop dev"
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
