@@ -139,7 +139,7 @@ services:
       - /app/node_modules
       - /app/apps/admin/node_modules
       - /app/apps/admin/.next
-    command: sh -c "cd /app && pnpm --filter admin dev"
+    command: sh -c "cd /app && pnpm install --no-frozen-lockfile && exec pnpm --filter admin dev"
 
   shop_web:
     build:
@@ -160,7 +160,7 @@ services:
       - /app/node_modules
       - /app/apps/shop/node_modules
       - /app/apps/shop/.next
-    command: sh -c "cd /app && pnpm --filter shop dev"
+    command: sh -c "cd /app && pnpm install --no-frozen-lockfile && exec pnpm --filter shop dev"
 
 volumes:
   postgres_data:
