@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -57,15 +57,31 @@ async function main() {
     },
   });
 
+  // Create demo supplier (required for products)
+  const supplier = await prisma.supplier.upsert({
+    where: { id: '00000000-0000-0000-0000-000000000004' },
+    update: {},
+    create: {
+      id: '00000000-0000-0000-0000-000000000004',
+      tenantId: tenant.id,
+      name: 'Demo Supplier',
+      email: 'supplier@demo.com',
+    },
+  });
+
   // Create demo products
   const product1 = await prisma.product.create({
     data: {
       tenantId: tenant.id,
       clientId: client.id,
+      supplierId: supplier.id,
       title: 'Demo T-Shirt',
       description: 'A cool demo t-shirt for testing the platform',
       price: 29.99,
       currency: 'USD',
+      supplyPrice: 15,
+      minSellPrice: 25,
+      listPrice: 29.99,
       slug: 'demo-t-shirt',
       status: 'published',
       variants: {
@@ -94,10 +110,14 @@ async function main() {
     data: {
       tenantId: tenant.id,
       clientId: client.id,
+      supplierId: supplier.id,
       title: 'Demo Hoodie',
       description: 'A warm demo hoodie perfect for any occasion',
       price: 59.99,
       currency: 'USD',
+      supplyPrice: 30,
+      minSellPrice: 50,
+      listPrice: 59.99,
       slug: 'demo-hoodie',
       status: 'published',
       variants: {

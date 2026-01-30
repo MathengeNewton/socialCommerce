@@ -34,7 +34,7 @@ npx ts-node prisma/seed.ts
 ```bash
 cd services/api
 export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/social_commerce"
-export REDIS_URL="redis://localhost:6379"
+export REDIS_URL="redis://localhost:6380"
 export S3_ENDPOINT="http://localhost:9000"
 export S3_ACCESS_KEY="minioadmin"
 export S3_SECRET_KEY="minioadmin"

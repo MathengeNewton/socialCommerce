@@ -1,5 +1,5 @@
 # Project name: keeps this stack isolated from others on the same host (e.g. tosha-city).
-# Host ports: 3003 shop, 3004 api, 3005 admin, 5434 postgres, 6379 redis, 9000/9001 minio.
+# Host ports: 3003 shop, 3004 api, 3005 admin, 5434 postgres, 6380 redis, 9000/9001 minio.
 name: hhourssop
 
 services:
@@ -24,7 +24,7 @@ services:
     image: redis:7-alpine
     container_name: social-commerce-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -100,6 +100,7 @@ services:
       dockerfile: ./services/worker/Dockerfile
     container_name: social-commerce-worker
     environment:
+      CI: "true"
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/social_commerce
       REDIS_URL: redis://redis:6379
       NODE_ENV: ${NODE_ENV:-development}

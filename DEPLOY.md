@@ -17,7 +17,7 @@ Optional (internal / dev only, usually not public):
 
 ### Same server as other Docker stacks (e.g. tosha-city)
 
-This stack uses **project name `hhourssop`**, so its containers, networks, and volumes are separate from other compose projects. It binds only these host ports: **3003, 3004, 3005, 5434, 6379, 9000, 9001**. As long as no other app uses those ports, you can run both hhourssop and tosha-city (or others) on the same server without clashes.
+This stack uses **project name `hhourssop`**, so its containers, networks, and volumes are separate from other compose projects. It binds only these host ports: **3003, 3004, 3005, 5434, 6380, 9000, 9001**. As long as no other app uses those ports, you can run both hhourssop and tosha-city (or others) on the same server without clashes.
 
 ---
 
