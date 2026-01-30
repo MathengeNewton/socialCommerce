@@ -35,7 +35,12 @@ export default function LoginPage() {
       localStorage.setItem('refreshToken', data.refreshToken);
       router.push('/dashboard');
     } catch (err: any) {
-      setError(err.message || 'An error occurred');
+      const msg = err?.message || '';
+      if (err?.name === 'TypeError' && (msg.includes('fetch') || msg.includes('Failed to fetch') || msg.includes('NetworkError'))) {
+        setError('Cannot reach the API. Check that the API is running and NEXT_PUBLIC_API_URL is correct (e.g. https://api.yourdomain.com or http://server-ip:3004).');
+      } else {
+        setError(msg || 'An error occurred');
+      }
     } finally {
       setLoading(false);
     }

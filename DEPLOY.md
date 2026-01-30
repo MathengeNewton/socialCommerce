@@ -161,6 +161,47 @@ Docker builds (e.g. when you run `./scripts/deploy.sh` with `--build`) run `pnpm
 
 ---
 
+## Troubleshooting: "UI shows error" or "can't reach API"
+
+If the admin or shop UI shows an error (e.g. login fails, "An error occurred", or pages don't load data), the browser is likely **unable to reach the API**.
+
+- The UI calls **`NEXT_PUBLIC_API_URL`** (e.g. `https://api.hhourssop.co.ke`). That URL must be reachable from the **user's browser** (same machine or public URL).
+
+**If you use domains (api.hhourssop.co.ke):**
+
+1. **DNS** – Ensure `api.hhourssop.co.ke`, `admin.hhourssop.co.ke`, and `shop.hhourssop.co.ke` have A (or CNAME) records pointing to your server IP.
+2. **Reverse proxy** – Nginx/Caddy must proxy:
+   - `api.hhourssop.co.ke` → `http://127.0.0.1:3004`
+   - `admin.hhourssop.co.ke` → `http://127.0.0.1:3005`
+   - `shop.hhourssop.co.ke` → `http://127.0.0.1:3003`
+   With HTTPS (e.g. Let's Encrypt) terminated at the proxy.
+3. **CORS** – In `.env` on the server set:
+   - `CORS_ORIGIN=https://admin.hhourssop.co.ke,https://shop.hhourssop.co.ke`
+   So the API allows requests from those origins.
+
+**If you access by server IP (no domain yet):**
+
+1. In **`.env`** on the server set:
+   - `NEXT_PUBLIC_API_URL=http://YOUR_SERVER_IP:3004`
+   - `NEXT_PUBLIC_SHOP_DOMAIN=YOUR_SERVER_IP:3003`
+   - `CORS_ORIGIN=http://YOUR_SERVER_IP:3005,http://YOUR_SERVER_IP:3003`
+   (Use the real IP or hostname users type in the browser.)
+2. Restart the stack so containers get the new env:
+   ```bash
+   docker compose down && docker compose up -d
+   ```
+3. Open admin at `http://YOUR_SERVER_IP:3005` and shop at `http://YOUR_SERVER_IP:3003`.
+
+**Check API from the server:**
+
+```bash
+curl -s http://localhost:3004/health
+```
+
+Should return 200. If you use a domain, also check from your machine: `curl -s https://api.hhourssop.co.ke/health`.
+
+---
+
 ## Quick reference
 
 | Goal | Command |
