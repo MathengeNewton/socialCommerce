@@ -27,17 +27,17 @@ async function main() {
     },
   });
 
-  // Create admin user
+  // Create admin user (admin@hhourssop.co.ke / admin123)
   const passwordHash = await bcrypt.hash('admin123', 10);
   const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@demo.com' },
-    update: { role: 'admin' },
+    where: { email: 'admin@hhourssop.co.ke' },
+    update: { passwordHash, role: 'admin' },
     create: {
       id: '00000000-0000-0000-0000-000000000003',
       tenantId: tenant.id,
-      email: 'admin@demo.com',
+      email: 'admin@hhourssop.co.ke',
       passwordHash,
-      name: 'Admin User',
+      name: 'Admin',
       role: 'admin',
     },
   });

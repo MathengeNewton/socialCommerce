@@ -7,9 +7,9 @@ services:
     image: postgres:16-alpine
     container_name: social-commerce-postgres
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: social_commerce
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-social_commerce}
     ports:
       - "5436:5432"
     volumes:
@@ -57,7 +57,7 @@ services:
       dockerfile: ./services/api/Dockerfile
     container_name: social-commerce-api
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/social_commerce
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/social_commerce}
       REDIS_URL: redis://redis:6379
       S3_ENDPOINT: http://minio:9000
       S3_ACCESS_KEY: minioadmin
@@ -101,7 +101,7 @@ services:
     container_name: social-commerce-worker
     environment:
       CI: "true"
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/social_commerce
+      DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/social_commerce}
       REDIS_URL: redis://redis:6379
       NODE_ENV: ${NODE_ENV:-development}
       REDIS_HOST: redis

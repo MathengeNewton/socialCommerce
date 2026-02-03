@@ -30,5 +30,8 @@ $COMPOSE_CMD build api
 echo "Running database migrations..."
 $COMPOSE_CMD run --rm api pnpm exec prisma migrate deploy
 
+echo "Seeding database (admin user, demo data)..."
+$COMPOSE_CMD run --rm api pnpm run seed
+
 echo "Starting all services..."
 $COMPOSE_CMD up -d --build "$@"

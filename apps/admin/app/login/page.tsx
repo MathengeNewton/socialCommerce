@@ -96,7 +96,7 @@ export default function LoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white text-gray-900 placeholder-gray-400"
-                  placeholder="admin@demo.com"
+                  placeholder="admin@hhourssop.co.ke"
                 />
               </div>
             </div>
@@ -154,12 +154,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-center text-sm text-gray-600">
-              Demo credentials: <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">admin@demo.com</span> / <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">admin123</span>
-            </p>
-          </div>
         </div>
 
         {/* Footer */}
