@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AdminNav from '../components/AdminNav';
 import DataTable, { DataTableColumn } from '../components/DataTable';
+import PostsViewTabs from './PostsViewTabs';
 
 type Post = {
   id: string;
@@ -183,9 +184,8 @@ function PostsContent() {
             }
             pagination={{ pageSize: 10 }}
             actions={
-              <div className="flex items-center gap-2">
-                <Link href="/posts/calendar" className="text-xs font-medium text-slate-600 hover:text-slate-900 px-2 py-1.5 rounded-md hover:bg-slate-100">Calendar</Link>
-                <Link href="/posts/analysis" className="text-xs font-medium text-slate-600 hover:text-slate-900 px-2 py-1.5 rounded-md hover:bg-slate-100">Analysis</Link>
+              <div className="flex items-center gap-3">
+                <PostsViewTabs />
                 <Link href="/compose" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors">
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                   Create post

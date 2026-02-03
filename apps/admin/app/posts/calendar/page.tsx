@@ -4,6 +4,7 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AdminNav from '../../components/AdminNav';
+import PostsViewTabs from '../PostsViewTabs';
 
 type Post = {
   id: string;
@@ -181,13 +182,8 @@ function CalendarContent() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h2 className="text-2xl font-bold text-slate-900">Post Calendar</h2>
-          <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href="/posts"
-              className="text-sm font-medium text-slate-600 hover:text-slate-900 px-2 py-1.5 rounded-md hover:bg-slate-100"
-            >
-              List view
-            </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            <PostsViewTabs />
             <Link
               href="/compose"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"

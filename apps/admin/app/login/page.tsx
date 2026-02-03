@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { enableDemoMode } from '../demo/mockFetch';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -130,6 +131,17 @@ export default function LoginPage() {
               </label>
               <a href="#" className="text-blue-600 hover:text-blue-700 font-medium">Forgot password?</a>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                enableDemoMode();
+                router.push('/dashboard');
+              }}
+              className="w-full border-2 border-amber-500 text-amber-700 py-3 px-4 rounded-xl font-semibold text-sm hover:bg-amber-50 transition-all flex items-center justify-center gap-2 mb-4"
+            >
+              🎬 Enter demo mode (TikTok + sample data)
+            </button>
 
             <button
               type="submit"

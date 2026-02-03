@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AdminNav from '../../components/AdminNav';
+import PostsViewTabs from '../PostsViewTabs';
 
 type Post = {
   id: string;
@@ -146,11 +147,14 @@ export default function PostsAnalysisPage() {
       <AdminNav title="hhourssop · Posts Analysis" backHref="/posts" />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <h2 className="text-2xl font-bold text-gray-900">Posts analysis</h2>
-          <Link href="/posts" className="btn-secondary">
-            View all posts
-          </Link>
+          <div className="flex items-center gap-3">
+            <PostsViewTabs />
+            <Link href="/posts" className="text-sm font-medium text-slate-600 hover:text-slate-900 px-3 py-2 rounded-md hover:bg-slate-100 border border-slate-200">
+              View all posts
+            </Link>
+          </div>
         </div>
 
         {error && (
