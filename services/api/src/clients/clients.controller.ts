@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, Request, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../tenant/tenant.guard';
 import { ClientsService } from './clients.service';
@@ -9,13 +9,23 @@ export class ClientsController {
   constructor(private clientsService: ClientsService) {}
 
   @Get()
-  async findAll(@Request() req) {
-    return this.clientsService.findAll(req.user.tenantId);
+  async findAll(@Request() req, @Query('includeInactive') includeInactive?: string) {
+    return this.clientsService.findAll(req.user.tenantId, includeInactive !== 'false');
+  }
+
+  @Get(':id/detail')
+  async getDetail(@Request() req, @Param('id') id: string) {
+    return this.clientsService.getDetail(req.user.tenantId, id);
   }
 
   @Get(':id')
   async findOne(@Request() req, @Param('id') id: string) {
     return this.clientsService.findOne(req.user.tenantId, id);
+  }
+
+  @Put(':id/active')
+  async setActive(@Request() req, @Param('id') id: string, @Body() body: { active: boolean }) {
+    return this.clientsService.setActive(req.user.tenantId, id, body.active);
   }
 
   @Post()

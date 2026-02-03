@@ -31,6 +31,7 @@ export class PublishingProcessor extends WorkerHost {
       platform,
       caption,
       mediaUrls,
+      mediaMimeTypes,
       accessToken,
       integrationId,
       pageId,
@@ -48,6 +49,7 @@ export class PublishingProcessor extends WorkerHost {
 
       // Publish to platform
       let externalPostId: string;
+      let postUrl: string | null = null;
       switch (platform) {
         case 'facebook':
           externalPostId = await this.publishToFacebook(
@@ -56,18 +58,33 @@ export class PublishingProcessor extends WorkerHost {
             mediaUrls,
             pageId,
           );
+          if (pageId && externalPostId) {
+            postUrl = `https://www.facebook.com/${pageId}/posts/${externalPostId}`;
+          }
           break;
         case 'instagram':
           externalPostId = await this.publishToInstagram(decryptedToken, caption, mediaUrls);
           break;
         case 'tiktok':
-          externalPostId = await this.publishToTikTok(decryptedToken, caption, mediaUrls);
+          const tiktokResult = await this.publishToTikTok(
+            decryptedToken,
+            caption,
+            mediaUrls || [],
+            (mediaMimeTypes as string[]) || [],
+          );
+          externalPostId = tiktokResult.publishId;
+          postUrl = tiktokResult.postUrl;
+          break;
+        case 'twitter':
+          externalPostId = await this.publishToTwitter(decryptedToken, caption, mediaUrls);
+          if (externalPostId) {
+            postUrl = `https://x.com/i/status/${externalPostId}`;
+          }
           break;
         default:
           throw new Error(`Unsupported platform: ${platform}`);
       }
 
-      // Update destination status to published
       await this.prisma.postDestination.update({
         where: {
           postId_destinationId: {
@@ -78,6 +95,7 @@ export class PublishingProcessor extends WorkerHost {
         data: {
           status: 'published',
           externalPostId,
+          postUrl,
           publishedAt: new Date(),
           error: null,
         },
@@ -229,10 +247,101 @@ export class PublishingProcessor extends WorkerHost {
     accessToken: string,
     caption: string,
     mediaUrls: string[],
+    mediaMimeTypes: string[],
+  ): Promise<{ publishId: string; postUrl: string | null }> {
+    // TikTok Direct Post: https://developers.tiktok.com/doc/content-posting-api-reference-direct-post
+    const videoUrl = this.getFirstVideoUrl(mediaUrls, mediaMimeTypes);
+    if (!videoUrl) {
+      throw new Error(
+        'TikTok requires at least one video. Add a video to your post. Images alone are not supported.',
+      );
+    }
+
+    // 1. Get creator info for privacy_level
+    const creatorRes = await fetch('https://open.tiktokapis.com/v2/post/publish/creator_info/query/', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: JSON.stringify({}),
+    });
+    if (!creatorRes.ok) {
+      const err = await creatorRes.json().catch(() => ({})) as { error?: { message?: string } };
+      throw new Error(err.error?.message || 'TikTok creator info failed. Token may be invalid or expired.');
+    }
+    const creatorData = (await creatorRes.json()) as {
+      data?: { privacy_level_options?: string[] };
+    };
+    const privacyOptions = creatorData.data?.privacy_level_options || [];
+    const privacyLevel =
+      privacyOptions.includes('PUBLIC_TO_EVERYONE')
+        ? 'PUBLIC_TO_EVERYONE'
+        : privacyOptions[0] || 'SELF_ONLY';
+
+    // 2. Init video post with PULL_FROM_URL
+    const initBody = {
+      post_info: {
+        privacy_level: privacyLevel,
+        title: caption || '',
+        disable_duet: false,
+        disable_stitch: false,
+        disable_comment: false,
+      },
+      source_info: {
+        source: 'PULL_FROM_URL',
+        video_url: videoUrl,
+      },
+    };
+    const initRes = await fetch('https://open.tiktokapis.com/v2/post/publish/video/init/', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: JSON.stringify(initBody),
+    });
+    if (!initRes.ok) {
+      const err = await initRes.json().catch(() => ({})) as {
+        error?: { message?: string; code?: string };
+        error_description?: string;
+      };
+      const msg =
+        err.error?.message ||
+        err.error_description ||
+        (typeof err === 'object' && 'message' in err ? String((err as any).message) : 'TikTok video init failed');
+      throw new Error(msg);
+    }
+    const initData = (await initRes.json()) as {
+      data?: { publish_id?: string };
+    };
+    const publishId = initData.data?.publish_id;
+    if (!publishId) {
+      throw new Error('TikTok did not return publish_id.');
+    }
+
+    // Post URL: TikTok returns publish_id; actual video URL available after moderation.
+    // We store publish_id. Optionally poll status/fetch for post_id later.
+    const postUrl = null; // Could poll status to get video ID and build https://www.tiktok.com/video/{id}
+
+    return { publishId, postUrl };
+  }
+
+  private getFirstVideoUrl(mediaUrls: string[], mediaMimeTypes: string[]): string | null {
+    const videoIndex = mediaMimeTypes.findIndex((m) => m?.startsWith('video/'));
+    if (videoIndex >= 0 && mediaUrls[videoIndex]) {
+      return mediaUrls[videoIndex];
+    }
+    return mediaUrls[0] || null;
+  }
+
+  private async publishToTwitter(
+    accessToken: string,
+    caption: string,
+    mediaUrls: string[],
   ): Promise<string> {
-    // Placeholder - TikTok Content Posting API
-    // Docs: https://developers.tiktok.com/doc/content-posting-api-get-started
-    // Requires: video.publish or video.upload scope, user access token
-    return `tiktok_post_${Date.now()}`;
+    // Placeholder - X (Twitter) API v2 Create Post
+    // Docs: https://developer.x.com/en/docs/twitter-api/tweets/manage-tweets/api-reference/post-tweets
+    return `twitter_post_${Date.now()}`;
   }
 }

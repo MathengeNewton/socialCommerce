@@ -33,6 +33,7 @@ export class LinkGenerationService {
       case 'facebook':
       case 'instagram':
       case 'tiktok':
+      case 'twitter':
         return `${caption}\n\n🔗 ${link}`;
       default:
         return `${caption}\n\n${link}`;

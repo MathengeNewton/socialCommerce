@@ -46,6 +46,9 @@ export class IntegrationsService {
     }
     if (provider === 'tiktok') {
       // TikTok: https://developers.tiktok.com/doc/oauth-user-access-token-management
+      if (!redirectUri) {
+        throw new BadRequestException('Redirect URI is required for TikTok.');
+      }
       const clientKey = this.configService.get<string>('TIKTOK_CLIENT_KEY');
       const clientSecret = this.configService.get<string>('TIKTOK_CLIENT_SECRET');
       if (!clientKey || !clientSecret) {
@@ -117,7 +120,7 @@ export class IntegrationsService {
       const message =
         err instanceof Error ? err.message : 'Integration connection failed';
       throw new BadRequestException(
-        message.startsWith('Facebook') || message.startsWith('Redirect')
+        message.startsWith('Facebook') || message.startsWith('Redirect') || message.startsWith('TikTok')
           ? message
           : `Could not connect ${provider}. ${message}`,
       );
@@ -188,7 +191,7 @@ export class IntegrationsService {
           where: { id: existing.id },
           data: {
             name: dest.name,
-            metadata: dest.metadata,
+            metadata: dest.metadata as any,
           },
         });
       } else {
@@ -198,7 +201,7 @@ export class IntegrationsService {
             type: dest.type as any,
             externalId: dest.id,
             name: dest.name,
-            metadata: dest.metadata,
+            metadata: dest.metadata as any,
           },
         });
       }
@@ -237,6 +240,41 @@ export class IntegrationsService {
         expiresIn: data.expires_in,
       };
     }
+    if (provider === 'tiktok' && redirectUri) {
+      const clientKey = this.configService.get<string>('TIKTOK_CLIENT_KEY');
+      const clientSecret = this.configService.get<string>('TIKTOK_CLIENT_SECRET');
+      if (!clientKey || !clientSecret) {
+        throw new Error('TikTok integration is not configured.');
+      }
+      const res = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_key: clientKey,
+          client_secret: clientSecret,
+          code,
+          grant_type: 'authorization_code',
+          redirect_uri: redirectUri,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string; error_description?: string };
+        const msg = body.error_description || body.error || 'TikTok token exchange failed. Check redirect URI and try again.';
+        throw new Error(msg);
+      }
+      const data = (await res.json()) as {
+        access_token: string;
+        refresh_token?: string;
+        expires_in?: number;
+      };
+      return {
+        accessToken: data.access_token,
+        refreshToken: data.refresh_token,
+        expiresIn: data.expires_in,
+      };
+    }
     return {
       accessToken: `mock_access_token_${code}`,
       refreshToken: `mock_refresh_token_${code}`,
@@ -261,9 +299,19 @@ export class IntegrationsService {
       return { id: data.id, name: data.name };
     }
     if (provider === 'tiktok') {
-      // TikTok User Info: https://developers.tiktok.com/doc/login-kit-user-info
-      // Placeholder until OAuth flow is implemented
-      return { id: `tt_user_${Date.now()}`, name: 'TikTok User' };
+      const res = await fetch('https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: { message?: string } };
+        throw new Error(body.error?.message || 'TikTok user info failed. Token may be invalid or expired.');
+      }
+      const data = (await res.json()) as { data?: { user?: { open_id: string; display_name: string } } };
+      const user = data.data?.user;
+      if (!user?.open_id) {
+        throw new Error('TikTok did not return user info.');
+      }
+      return { id: user.open_id, name: user.display_name || 'TikTok User' };
     }
     return { id: `user_${Date.now()}`, name: 'User', email: 'user@example.com' };
   }
@@ -316,9 +364,13 @@ export class IntegrationsService {
       return [{ id: `ig_${Date.now()}`, type: 'instagram_business', name: 'Instagram Account', metadata: {} }];
     }
     if (provider === 'tiktok') {
-      // TikTok Content Posting API - requires OAuth with video.publish scope
-      // Docs: https://developers.tiktok.com/doc/content-posting-api-get-started
-      return [{ id: `tt_${Date.now()}`, type: 'tiktok_account', name: 'TikTok Account', metadata: {} }];
+      const userInfo = await this.getUserInfo(provider, accessToken);
+      return [{
+        id: userInfo.id,
+        type: 'tiktok_account',
+        name: userInfo.name || 'TikTok Account',
+        metadata: {},
+      }];
     }
     return [];
   }

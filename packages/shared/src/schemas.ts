@@ -76,16 +76,20 @@ export const mediaConfirmSchema = z.object({
 });
 
 // Post schemas
+const platformCaptionSchema = z.object({
+  text: z.string(),
+  hashtags: z.string().optional(),
+  includeLink: z.boolean(),
+});
+
 export const createPostSchema = z.object({
   captions: z.record(
-    z.enum(['facebook', 'instagram', 'tiktok']),
-    z.object({
-      text: z.string(),
-      includeLink: z.boolean(),
-    })
+    z.enum(['facebook', 'instagram', 'tiktok', 'twitter']),
+    platformCaptionSchema
   ),
   destinationIds: z.array(z.string().uuid()),
   mediaIds: z.array(z.string().uuid()).min(1),
+  mediaPerDestination: z.record(z.string().uuid(), z.array(z.string().uuid())).optional(),
   productIds: z.array(z.string().uuid()).optional(),
   primaryProductId: z.string().uuid().optional(),
   scheduledAt: z.string().datetime().nullable().optional(),
@@ -104,7 +108,7 @@ export const schedulePostSchema = z.object({
 
 // Integration schemas
 export const connectIntegrationSchema = z.object({
-  provider: z.enum(['facebook', 'instagram', 'tiktok']),
+  provider: z.enum(['facebook', 'instagram', 'tiktok', 'twitter']),
   code: z.string(),
   redirectUri: z.string().url(),
 });

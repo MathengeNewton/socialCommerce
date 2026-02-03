@@ -36,7 +36,8 @@ import { PrismaClient } from '@prisma/client';
         const configService = {
           get: (key: string) => process.env[key] || 'default-key-change-me',
         };
-        return new IntegrationsService(prisma as any, configService as any);
+        const auditService = { log: async () => {} };
+        return new IntegrationsService(prisma as any, configService as any, auditService as any);
       },
       inject: [PrismaService],
     },

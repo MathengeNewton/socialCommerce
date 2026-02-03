@@ -71,6 +71,7 @@ export default function PostsAnalysisPage() {
       facebook_page: 'Facebook',
       instagram_business: 'Instagram',
       tiktok_account: 'TikTok',
+      twitter_account: 'X (Twitter)',
     };
     return m[type] || type;
   };

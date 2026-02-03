@@ -29,18 +29,23 @@ async function main() {
 
   // Create admin user (admin@hhourssop.co.ke / admin123)
   const passwordHash = await bcrypt.hash('admin123', 10);
-  const adminUser = await prisma.user.upsert({
-    where: { email: 'admin@hhourssop.co.ke' },
-    update: { passwordHash, role: 'admin' },
-    create: {
-      id: '00000000-0000-0000-0000-000000000003',
-      tenantId: tenant.id,
-      email: 'admin@hhourssop.co.ke',
-      passwordHash,
-      name: 'Admin',
-      role: 'admin',
-    },
+  const existingAdmin = await prisma.user.findFirst({
+    where: { email: { in: ['admin@hhourssop.co.ke', 'admin@demo.com'] }, tenantId: tenant.id },
   });
+  const adminUser = existingAdmin
+    ? await prisma.user.update({
+        where: { id: existingAdmin.id },
+        data: { email: 'admin@hhourssop.co.ke', passwordHash, name: 'Admin', role: 'admin' },
+      })
+    : await prisma.user.create({
+        data: {
+          tenantId: tenant.id,
+          email: 'admin@hhourssop.co.ke',
+          passwordHash,
+          name: 'Admin',
+          role: 'admin',
+        },
+      });
 
   // Create membership
   await prisma.membership.upsert({

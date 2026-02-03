@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AdminNav from '../components/AdminNav';
 import { useConfirm } from '../components/ConfirmContext';
 
@@ -20,10 +20,12 @@ const PROVIDERS: { id: string; name: string; icon: string; color: string }[] = [
   { id: 'facebook', name: 'Facebook', icon: '📘', color: 'from-blue-500 to-blue-600' },
   { id: 'instagram', name: 'Instagram', icon: '📷', color: 'from-pink-500 to-purple-600' },
   { id: 'tiktok', name: 'TikTok', icon: '🎵', color: 'from-gray-900 to-black' },
+  { id: 'twitter', name: 'X (Twitter)', icon: '𝕏', color: 'from-slate-800 to-slate-900' },
 ];
 
-export default function IntegrationsPage() {
+function IntegrationsContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const apiUrl = useMemo(() => process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3004', []);
   const [loading, setLoading] = useState(true);
   const [clients, setClients] = useState<Client[]>([]);
@@ -88,10 +90,15 @@ export default function IntegrationsPage() {
   }, [router]);
 
   useEffect(() => {
-    if (clients.length && !selectedClientId) {
-      setSelectedClientId(clients[0].id);
+    const clientIdFromUrl = searchParams.get('clientId');
+    if (clients.length) {
+      if (clientIdFromUrl && clients.some((c) => c.id === clientIdFromUrl)) {
+        setSelectedClientId(clientIdFromUrl);
+      } else if (!selectedClientId) {
+        setSelectedClientId(clients[0].id);
+      }
     }
-  }, [clients, selectedClientId]);
+  }, [clients, selectedClientId, searchParams]);
 
   useEffect(() => {
     if (selectedClientId) {
@@ -142,7 +149,19 @@ export default function IntegrationsPage() {
       return;
     }
     if (provider === 'tiktok') {
-      setError('TikTok OAuth not yet configured. Set TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET on the API.');
+      const clientKey = process.env.NEXT_PUBLIC_TIKTOK_CLIENT_KEY;
+      if (!clientKey) {
+        setError('TikTok not configured. Set NEXT_PUBLIC_TIKTOK_CLIENT_KEY.');
+        return;
+      }
+      const redirectUri =
+        typeof window !== 'undefined'
+          ? `${window.location.origin}/settings/oauth/tiktok`
+          : '';
+      const scope = 'user.info.basic,video.publish,video.upload';
+      const state = selectedClientId;
+      const url = `https://www.tiktok.com/v2/auth/authorize/?client_key=${encodeURIComponent(clientKey)}&scope=${encodeURIComponent(scope)}&response_type=code&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}`;
+      window.location.href = url;
       return;
     }
 
@@ -366,5 +385,13 @@ export default function IntegrationsPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function IntegrationsPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-2 border-blue-600 border-t-transparent" /></div>}>
+      <IntegrationsContent />
+    </Suspense>
   );
 }

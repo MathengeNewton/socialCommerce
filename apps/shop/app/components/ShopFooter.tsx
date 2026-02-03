@@ -32,6 +32,16 @@ export default function ShopFooter() {
                 </Link>
               </li>
               <li>
+                <Link href="/terms" className="text-sm text-shop-muted hover:text-shop-fg transition-colors">
+                  Terms of Service
+                </Link>
+              </li>
+              <li>
+                <Link href="/privacy" className="text-sm text-shop-muted hover:text-shop-fg transition-colors">
+                  Privacy Policy
+                </Link>
+              </li>
+              <li>
                 <Link href="/categories" className="text-sm text-shop-muted hover:text-shop-fg transition-colors">
                   Explore categories
                 </Link>

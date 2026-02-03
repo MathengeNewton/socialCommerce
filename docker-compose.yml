@@ -73,6 +73,7 @@ services:
       CLOUDINARY_UPLOAD_FOLDER: ${CLOUDINARY_UPLOAD_FOLDER:-social-commerce}
       NODE_ENV: ${NODE_ENV:-development}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3005,http://localhost:3003}
+      SHOP_DOMAIN: ${SHOP_DOMAIN:-localhost:3003}
       PORT: 3000
     ports:
       - "3004:3000"
@@ -130,6 +131,7 @@ services:
       CI: "true"
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3004}
       NEXT_PUBLIC_SHOP_URL: ${NEXT_PUBLIC_SHOP_URL:-http://localhost:3003}
+      NEXT_PUBLIC_TIKTOK_CLIENT_KEY: ${NEXT_PUBLIC_TIKTOK_CLIENT_KEY:-}
       NODE_ENV: ${NODE_ENV:-development}
     ports:
       - "3005:3000"

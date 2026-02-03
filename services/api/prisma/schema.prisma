@@ -41,6 +41,7 @@ model Client {
   id        String   @id @default(uuid())
   tenantId  String
   name      String
+  active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -264,8 +265,9 @@ model Post {
 model PostCaption {
   id          String   @id @default(uuid())
   postId      String   @map("post_id")
-  platform    String   // 'facebook' | 'instagram' | 'tiktok'
+  platform    String   // 'facebook' | 'instagram' | 'tiktok' | 'twitter'
   caption     String   @db.Text
+  hashtags    String?  @db.Text  // e.g. "#sale #newarrival"
   includeLink Boolean  @default(false) @map("include_link")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -312,7 +314,7 @@ model Integration {
   id           String    @id @default(uuid())
   tenantId     String    @map("tenant_id")
   clientId     String    @map("client_id")
-  provider     String    // 'facebook' | 'instagram' | 'tiktok'
+  provider     String    // 'facebook' | 'instagram' | 'tiktok' | 'twitter'
   externalId   String    @map("external_id")
   accessToken  String    @map("access_token") @db.Text
   refreshToken String?   @map("refresh_token") @db.Text
@@ -334,7 +336,7 @@ model Integration {
 model Destination {
   id           String   @id @default(uuid())
   integrationId String  @map("integration_id")
-  type         String   // 'facebook_page' | 'instagram_business' | 'tiktok_account'
+  type         String   // 'facebook_page' | 'instagram_business' | 'tiktok_account' | 'twitter_account'
   externalId   String   @map("external_id")
   name         String
   metadata     Json     @default("{}")
@@ -355,6 +357,8 @@ model PostDestination {
   destinationId  String    @map("destination_id")
   status         String    @default("draft") // 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed'
   externalPostId String?   @map("external_post_id")
+  postUrl        String?   @map("post_url")   // Link to published post on platform
+  mediaIds       Json?     @map("media_ids")  // Optional: media IDs for this destination (overrides post media)
   error          String?   @db.Text
   publishedAt    DateTime? @map("published_at")
   createdAt      DateTime  @default(now())

@@ -5,6 +5,7 @@ import { ScheduledPublishService } from './scheduled-publish.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { LinkGenerationModule } from '../link-generation/link-generation.module';
 import { IntegrationsModule } from '../integrations/integrations.module';
+import { MediaModule } from '../media/media.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { IntegrationsModule } from '../integrations/integrations.module';
     PrismaModule,
     LinkGenerationModule,
     IntegrationsModule,
+    MediaModule,
   ],
   providers: [PublishingService, ScheduledPublishService],
   exports: [PublishingService],

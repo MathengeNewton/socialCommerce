@@ -92,6 +92,7 @@ export default function DashboardPage() {
     { title: 'Catalog', href: '/catalog', icon: '📦' },
     { title: 'Orders', href: '/orders', icon: '🛒' },
     { title: 'Posts', href: '/posts', icon: '📝' },
+    { title: 'Calendar', href: '/posts/calendar', icon: '📅' },
     ...(isAdmin ? [{ title: 'Clients', href: '/clients', icon: '👥' }] : []),
     ...(isAdmin ? [{ title: 'Suppliers', href: '/suppliers', icon: '🏢' }] : []),
     ...(isAdmin ? [{ title: 'Billing', href: '/billing', icon: '💰' }] : []),

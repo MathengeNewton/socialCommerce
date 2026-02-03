@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LinkGenerationService } from '../link-generation/link-generation.service';
 import { AuditService } from '../audit/audit.service';
 import { IntegrationsService } from '../integrations/integrations.service';
+import { MediaService } from '../media/media.service';
 
 @Injectable()
 export class PublishingService {
@@ -14,6 +15,7 @@ export class PublishingService {
     private linkGenerationService: LinkGenerationService,
     private auditService: AuditService,
     private integrationsService: IntegrationsService,
+    private mediaService: MediaService,
   ) {}
 
   async publishPost(tenantId: string, postId: string, userId?: string) {
@@ -64,40 +66,70 @@ export class PublishingService {
     const primaryProduct = post.products.find((pp) => pp.isPrimary)?.product;
     const productSlug = primaryProduct?.slug || null;
 
-    // Create job for each destination
+    const destTypeToPlatform: Record<string, string> = {
+      facebook_page: 'facebook',
+      instagram_business: 'instagram',
+      tiktok_account: 'tiktok',
+      twitter_account: 'twitter',
+    };
+
     for (const postDest of post.destinations) {
-      const platform = postDest.destination.integration.provider;
+      const platform =
+        destTypeToPlatform[postDest.destination.type] ||
+        postDest.destination.integration.provider;
       const caption = post.captions.find((c) => c.platform === platform);
 
       if (!caption) {
-        continue; // Skip if no caption for this platform
+        continue;
       }
 
-      // Format caption with link if enabled
       let finalCaption = caption.caption;
+      if (caption.hashtags?.trim()) {
+        finalCaption = `${finalCaption}\n\n${caption.hashtags.trim()}`;
+      }
       if (caption.includeLink && productSlug) {
         const link = this.linkGenerationService.generateProductLink(productSlug, platform);
         finalCaption = this.linkGenerationService.appendLinkToCaption(
-          caption.caption,
+          finalCaption,
           link,
           platform,
           true,
         );
       }
 
-      // For Facebook use Page token from destination metadata if present
       let accessToken = postDest.destination.integration.accessToken;
       const destMeta = postDest.destination.metadata as { pageAccessTokenEncrypted?: string } | null;
       if (platform === 'facebook' && destMeta?.pageAccessTokenEncrypted) {
         accessToken = this.integrationsService.decryptToken(destMeta.pageAccessTokenEncrypted);
       }
 
+      let mediaItems: { url: string; mimeType: string }[];
+      const overrideIds = postDest.mediaIds as string[] | null;
+      const mediaList =
+        Array.isArray(overrideIds) && overrideIds.length > 0
+          ? overrideIds
+              .map((id) => post.media.find((pm) => pm.mediaId === id)?.media)
+              .filter((m): m is NonNullable<typeof m> => !!m)
+          : post.media.map((pm) => pm.media);
+      if (mediaList.length === 0) {
+        mediaItems = [];
+      } else {
+        mediaItems = await Promise.all(
+          mediaList.map(async (m) => ({
+            url: await this.mediaService.resolveMediaUrl(m.url),
+            mimeType: m.mimeType,
+          })),
+        );
+      }
+      const mediaUrls = mediaItems.map((m) => m.url);
+
       const jobPayload: Record<string, unknown> = {
         postId,
         destinationId: postDest.destinationId,
         platform,
         caption: finalCaption,
-        mediaUrls: post.media.map((pm) => pm.media.url),
+        mediaUrls,
+        mediaMimeTypes: mediaItems.map((m) => m.mimeType),
         accessToken,
         integrationId: postDest.destination.integration.id,
       };

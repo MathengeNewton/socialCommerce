@@ -20,11 +20,13 @@ export default function ComposePage() {
   const [selectedDestinations, setSelectedDestinations] = useState<string[]>([]);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [primaryProduct, setPrimaryProduct] = useState<string>('');
-  const [captions, setCaptions] = useState<Record<string, { text: string; includeLink: boolean }>>({
+  const [captions, setCaptions] = useState<Record<string, { text: string; hashtags?: string; includeLink: boolean }>>({
     facebook: { text: '', includeLink: true },
     instagram: { text: '', includeLink: true },
     tiktok: { text: '', includeLink: true },
+    twitter: { text: '', includeLink: true },
   });
+  const [mediaPerDestination, setMediaPerDestination] = useState<Record<string, string[]>>({});
   const [createdPostId, setCreatedPostId] = useState<string | null>(null);
   const [showPublishActions, setShowPublishActions] = useState(false);
   const [scheduleDateTime, setScheduleDateTime] = useState('');
@@ -74,10 +76,11 @@ export default function ComposePage() {
         if (destResponse.ok) {
           const destData = await destResponse.json();
           setDestinations(destData);
+          setSelectedDestinations(destData.map((d: { id: string }) => d.id));
         }
 
-        // Fetch products filtered by client
-        const productsResponse = await fetch(`${apiUrl}/products?clientId=${encodeURIComponent(selectedClientId)}`, {
+        // Fetch products (tenant-scoped)
+        const productsResponse = await fetch(`${apiUrl}/products?limit=100`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (productsResponse.ok) {
@@ -98,6 +101,16 @@ export default function ComposePage() {
       const token = localStorage.getItem('accessToken');
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3004';
 
+      const platformsWithDests = new Set(
+        selectedDestinations
+          .map((id) => destinations.find((d) => d.id === id)?.type)
+          .map((t) => (t ? destTypeToPlatform[t] : null))
+          .filter(Boolean) as string[]
+      );
+      const filteredCaptions = Object.fromEntries(
+        Object.entries(captions).filter(([k]) => platformsWithDests.has(k))
+      );
+
       const response = await fetch(`${apiUrl}/posts`, {
         method: 'POST',
         headers: {
@@ -106,9 +119,15 @@ export default function ComposePage() {
         },
         body: JSON.stringify({
           clientId: selectedClientId,
-          captions,
+          captions: Object.fromEntries(
+            Object.entries(filteredCaptions).map(([k, v]) => [
+              k,
+              { text: v.text, hashtags: v.hashtags || undefined, includeLink: v.includeLink },
+            ])
+          ),
           destinationIds: selectedDestinations,
           mediaIds: selectedMediaItems.map((m) => m.id),
+          mediaPerDestination: Object.keys(mediaPerDestination).length > 0 ? mediaPerDestination : undefined,
           productIds: selectedProducts.length > 0 ? selectedProducts : undefined,
           primaryProductId: primaryProduct || undefined,
         }),
@@ -181,34 +200,51 @@ export default function ComposePage() {
     }
   };
 
-  const CAPTION_LIMITS = {
+  const CAPTION_LIMITS: Record<string, number> = {
     facebook: 5000,
     instagram: 2200,
     tiktok: 2200,
+    twitter: 280,
+  };
+  const PLATFORM_LABELS: Record<string, string> = {
+    facebook: 'Facebook',
+    instagram: 'Instagram',
+    tiktok: 'TikTok',
+    twitter: 'X (Twitter)',
+  };
+  const destTypeToPlatform: Record<string, string> = {
+    facebook_page: 'facebook',
+    instagram_business: 'instagram',
+    tiktok_account: 'tiktok',
+    twitter_account: 'twitter',
   };
 
   const getCaptionLength = (platform: string) => captions[platform]?.text?.length || 0;
   const getCaptionLimit = (platform: string) => CAPTION_LIMITS[platform as keyof typeof CAPTION_LIMITS];
 
+  const STEPS = ['Client', 'Media', 'Destinations', 'Content', 'Products'];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30">
+    <div className="min-h-screen bg-slate-50">
       <AdminNav title="hhourssop · Create Post" backHref="/dashboard" />
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-end gap-3 mb-6">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+      <main className="max-w-2xl mx-auto px-4 sm:px-6 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <Link
+            href="/dashboard"
+            className="text-sm font-medium text-slate-600 hover:text-slate-900"
           >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={loading || step < 4 || !selectedClientId}
-            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-          >
-            {loading ? 'Saving...' : 'Save Draft'}
-          </button>
+            ← Cancel
+          </Link>
+          {step >= 4 && (
+            <button
+              onClick={handleSubmit}
+              disabled={loading || !selectedClientId}
+              className="px-4 py-2 rounded-lg text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? 'Saving…' : 'Save post'}
+            </button>
+          )}
         </div>
         {showPublishActions && createdPostId ? (
           <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 max-w-md mx-auto">
@@ -264,85 +300,48 @@ export default function ComposePage() {
           </div>
         ) : (
           <>
-        {/* Progress Steps */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
-            {[0, 1, 2, 3, 4].map((s) => (
-              <div key={s} className="flex items-center flex-1">
-                <div className="flex flex-col items-center flex-1">
-                  <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-all ${
-                      step >= s
-                        ? 'bg-gradient-to-br from-blue-600 to-indigo-600 text-white shadow-lg'
-                        : 'bg-gray-200 text-gray-500'
-                    }`}
-                  >
-                    {step > s ? (
-                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                      </svg>
-                    ) : (
-                      s
-                    )}
-                  </div>
-                  <p className={`text-xs mt-2 font-medium ${step >= s ? 'text-gray-900' : 'text-gray-500'}`}>
-                    {s === 0 && 'Client'}
-                    {s === 1 && 'Media'}
-                    {s === 2 && 'Destinations'}
-                    {s === 3 && 'Content'}
-                    {s === 4 && 'Products'}
-                  </p>
-                </div>
-                {s < 4 && (
-                  <div
-                    className={`h-1 flex-1 mx-2 rounded ${
-                      step > s ? 'bg-gradient-to-r from-blue-600 to-indigo-600' : 'bg-gray-200'
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
+        {/* Slim progress */}
+        <div className="flex gap-1 mb-6">
+          {STEPS.map((label, s) => (
+            <div
+              key={s}
+              className={`h-1 flex-1 rounded-full transition-colors ${
+                step > s ? 'bg-blue-600' : step === s ? 'bg-blue-500' : 'bg-slate-200'
+              }`}
+              title={label}
+            />
+          ))}
         </div>
+        <p className="text-xs text-slate-500 mb-6">{STEPS[step]}</p>
 
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8">
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 sm:p-8">
           {/* Step 0: Client Selection */}
           {step === 0 && (
             <div className="animate-fade-in">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Select Client</h2>
+              <h2 className="text-lg font-semibold text-slate-900 mb-4">Who is this post for?</h2>
               {clients.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-xl mb-6">
-                  <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                  <p className="text-gray-600 mb-4">No clients available</p>
-                  <Link
-                    href="/clients"
-                    className="inline-block text-blue-600 hover:text-blue-700 font-semibold"
-                  >
-                    Create a client →
+                <div className="text-center py-12 rounded-lg bg-slate-50">
+                  <p className="text-slate-600 mb-4">No clients yet</p>
+                  <Link href="/clients" className="text-sm font-medium text-blue-600 hover:text-blue-700">
+                    Add a client →
                   </Link>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                <div className="space-y-2">
                   {clients.map((client) => (
                     <button
                       key={client.id}
+                      type="button"
                       onClick={() => {
                         setSelectedClientId(client.id);
                         setStep(1);
                       }}
-                      className="p-6 border-2 rounded-xl text-left transition-all hover:shadow-lg border-gray-200 hover:border-blue-300"
+                      className="w-full flex items-center justify-between p-4 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 text-left transition-colors group"
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-bold text-lg text-gray-900">{client.name}</p>
-                          <p className="text-sm text-gray-500 font-mono mt-1">{client.id.slice(0, 8)}...</p>
-                        </div>
-                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </div>
+                      <span className="font-medium text-slate-900">{client.name}</span>
+                      <svg className="w-5 h-5 text-slate-400 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
                     </button>
                   ))}
                 </div>
@@ -469,68 +468,78 @@ export default function ComposePage() {
             </div>
           )}
 
-          {/* Step 2: Destinations */}
+          {/* Step 2: Destinations + Media per platform */}
           {step === 2 && (
             <div className="animate-fade-in">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Select Destinations</h2>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Destinations & Media</h2>
+              <p className="text-sm text-gray-600 mb-6">Post will go to all connected accounts. Choose which media to use for each platform.</p>
               {destinations.length === 0 ? (
                 <div className="text-center py-12 bg-gray-50 rounded-xl mb-6">
                   <svg className="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
                   </svg>
-                  <p className="text-gray-600 mb-4">No destinations available</p>
-                  <Link
-                    href="/settings"
-                    className="inline-block text-blue-600 hover:text-blue-700 font-semibold"
-                  >
-                    Connect social accounts →
+                  <p className="text-gray-600 mb-4">No destinations available. Connect social accounts for this client first.</p>
+                  <Link href={`/clients/${selectedClientId}`} className="inline-block text-blue-600 hover:text-blue-700 font-semibold">
+                    Connect accounts →
                   </Link>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                  {destinations.map((dest) => (
-                    <button
-                      key={dest.id}
-                      onClick={() => {
-                        if (selectedDestinations.includes(dest.id)) {
-                          setSelectedDestinations(selectedDestinations.filter((id) => id !== dest.id));
-                        } else {
-                          setSelectedDestinations([...selectedDestinations, dest.id]);
-                        }
-                      }}
-                      className={`p-4 border-2 rounded-xl text-left transition-all ${
-                        selectedDestinations.includes(dest.id)
-                          ? 'border-blue-600 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-bold text-gray-900">{dest.name}</p>
-                          <p className="text-sm text-gray-500 capitalize">{dest.type.replace('_', ' ')}</p>
+                <div className="space-y-4 mb-6">
+                  {destinations.map((dest) => {
+                    const platform = destTypeToPlatform[dest.type] || dest.type;
+                    const currentMedia = mediaPerDestination[dest.id] ?? selectedMediaItems.map((m) => m.id);
+                    return (
+                      <div key={dest.id} className="p-4 border-2 border-blue-200 bg-blue-50/50 rounded-xl">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="font-bold text-gray-900">{dest.name}</span>
+                          <span className="text-xs px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full capitalize">
+                            {PLATFORM_LABELS[platform] || platform}
+                          </span>
                         </div>
-                        {selectedDestinations.includes(dest.id) && (
-                          <div className="w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center">
-                            <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                            </svg>
-                          </div>
-                        )}
+                        <p className="text-xs text-gray-600 mb-3">Media for this platform:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedMediaItems.map((item) => {
+                            const isChecked = currentMedia.includes(item.id);
+                            return (
+                              <label
+                                key={item.id}
+                                className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${
+                                  isChecked ? 'border-blue-600 bg-white' : 'border-gray-200 bg-white'
+                                }`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={isChecked}
+                                  onChange={(e) => {
+                                    const next = e.target.checked
+                                      ? [...currentMedia, item.id]
+                                      : currentMedia.filter((id) => id !== item.id);
+                                    if (next.length === 0) return;
+                                    setMediaPerDestination((prev) => ({ ...prev, [dest.id]: next }));
+                                  }}
+                                  className="rounded border-gray-300 text-blue-600"
+                                />
+                                {item.url?.includes('.mp4') ? (
+                                  <span className="text-xs">Video</span>
+                                ) : (
+                                  <img src={item.url} alt="" className="w-8 h-8 rounded object-cover" />
+                                )}
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </button>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               <div className="flex gap-3">
-                <button
-                  onClick={() => setStep(1)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-3.5 px-4 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
-                >
+                <button onClick={() => setStep(1)} className="flex-1 bg-gray-100 text-gray-700 py-3.5 px-4 rounded-xl font-semibold hover:bg-gray-200 transition-colors">
                   Back
                 </button>
                 <button
                   onClick={() => setStep(3)}
-                  disabled={selectedDestinations.length === 0}
+                  disabled={destinations.length === 0}
                   className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3.5 px-4 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                 >
                   Continue to Content
@@ -543,10 +552,11 @@ export default function ComposePage() {
           {step === 3 && (
             <div className="animate-fade-in">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Write Captions</h2>
+              <p className="text-sm text-gray-600 mb-6">Add captions and hashtags for each platform. Each platform has different character limits.</p>
               <div className="space-y-6">
-                {['facebook', 'instagram', 'tiktok'].map((platform) => {
+                {['facebook', 'instagram', 'tiktok', 'twitter'].map((platform) => {
                   const isSelected = selectedDestinations.some(
-                    (destId) => destinations.find((d) => d.id === destId)?.type.includes(platform),
+                    (destId) => destTypeToPlatform[destinations.find((d) => d.id === destId)?.type || ''] === platform,
                   );
                   if (!isSelected) return null;
 
@@ -554,11 +564,11 @@ export default function ComposePage() {
                     <div key={platform} className="border-2 border-gray-200 rounded-xl p-6">
                       <div className="flex items-center justify-between mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold capitalize">
-                            {platform.charAt(0)}
+                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">
+                            {PLATFORM_LABELS[platform]?.charAt(0) || platform.charAt(0)}
                           </div>
                           <div>
-                            <h3 className="font-bold text-gray-900 capitalize">{platform}</h3>
+                            <h3 className="font-bold text-gray-900">{PLATFORM_LABELS[platform] || platform}</h3>
                             <p className="text-xs text-gray-500">
                               {getCaptionLength(platform)} / {getCaptionLimit(platform)} characters
                             </p>
@@ -567,7 +577,7 @@ export default function ComposePage() {
                         <label className="flex items-center gap-2 cursor-pointer">
                           <input
                             type="checkbox"
-                            checked={captions[platform]?.includeLink || false}
+                            checked={captions[platform]?.includeLink ?? true}
                             onChange={(e) =>
                               setCaptions({
                                 ...captions,
@@ -588,13 +598,23 @@ export default function ComposePage() {
                           })
                         }
                         maxLength={getCaptionLimit(platform)}
-                        placeholder={`Write your ${platform} caption...`}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all min-h-[120px] resize-none"
+                        placeholder={`Write your ${PLATFORM_LABELS[platform] || platform} caption...`}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all min-h-[100px] resize-none mb-3"
+                      />
+                      <input
+                        type="text"
+                        value={captions[platform]?.hashtags || ''}
+                        onChange={(e) =>
+                          setCaptions({
+                            ...captions,
+                            [platform]: { ...captions[platform], hashtags: e.target.value },
+                          })
+                        }
+                        placeholder="#hashtags #example"
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       />
                       {getCaptionLength(platform) > getCaptionLimit(platform) * 0.9 && (
-                        <p className="text-xs text-orange-600 mt-2">
-                          Approaching character limit
-                        </p>
+                        <p className="text-xs text-orange-600 mt-2">Approaching character limit</p>
                       )}
                     </div>
                   );

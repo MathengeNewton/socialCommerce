@@ -11,12 +11,13 @@ type Post = {
   scheduledAt: string | null;
   createdAt: string;
   client: { id: string; name: string };
-  captions: Array<{ platform: string; caption: string; includeLink: boolean }>;
+  captions: Array<{ platform: string; caption: string; hashtags?: string | null; includeLink: boolean }>;
   media: Array<{ media: { id: string; url: string; mimeType: string }; order: number }>;
   products: Array<{ product: { title: string; slug: string }; isPrimary: boolean }>;
   destinations: Array<{
     status: string;
     externalPostId: string | null;
+    postUrl: string | null;
     publishedAt: string | null;
     error: string | null;
     destination: {
@@ -32,6 +33,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   facebook_page: 'Facebook',
   instagram_business: 'Instagram',
   tiktok_account: 'TikTok',
+  twitter_account: 'X (Twitter)',
 };
 
 export default function PostDetailPage() {
@@ -76,12 +78,12 @@ export default function PostDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/20">
         <AdminNav title="hhourssop · Post" backHref="/posts" />
-        <main className="max-w-7xl mx-auto px-4 py-8">
-          <div className="text-center py-16">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-600">Loading…</p>
+        <main className="max-w-5xl mx-auto px-4 py-8">
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="w-10 h-10 border-2 border-blue-500/30 border-t-blue-600 rounded-full animate-spin mb-3" />
+            <p className="text-sm text-slate-500">Loading post…</p>
           </div>
         </main>
       </div>
@@ -90,13 +92,13 @@ export default function PostDetailPage() {
 
   if (error || !post) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/20">
         <AdminNav title="hhourssop · Post" backHref="/posts" />
-        <main className="max-w-7xl mx-auto px-4 py-8">
-          <div className="card text-center py-12">
-            <p className="text-red-600">{error || 'Post not found'}</p>
-            <Link href="/posts" className="btn-secondary mt-4 inline-block">
-              Back to posts
+        <main className="max-w-5xl mx-auto px-4 py-8">
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center">
+            <p className="text-red-600 text-sm">{error || 'Post not found'}</p>
+            <Link href="/posts" className="mt-4 inline-block text-sm font-medium text-blue-600 hover:text-blue-700">
+              ← Back to posts
             </Link>
           </div>
         </main>
@@ -104,132 +106,197 @@ export default function PostDetailPage() {
     );
   }
 
+  const statusConfig = {
+    published: { bg: 'bg-emerald-100', text: 'text-emerald-800', icon: '✓' },
+    failed: { bg: 'bg-red-100', text: 'text-red-800', icon: '!' },
+    scheduled: { bg: 'bg-amber-100', text: 'text-amber-800', icon: '⏱' },
+    publishing: { bg: 'bg-blue-100', text: 'text-blue-800', icon: '↻' },
+    draft: { bg: 'bg-slate-100', text: 'text-slate-700', icon: '○' },
+  };
+  const statusStyle = statusConfig[post.status as keyof typeof statusConfig] ?? statusConfig.draft;
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/20">
       <AdminNav title="hhourssop · Post" backHref="/posts" />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900">Post details</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Client: <span className="font-medium text-gray-700">{post.client?.name}</span> ·{' '}
-              {new Date(post.createdAt).toLocaleString()}
-            </p>
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+            <div>
+              <h1 className="text-xl font-bold text-slate-900">Post details</h1>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-slate-500">
+                <Link href={`/clients/${post.client?.id}`} className="font-medium text-blue-600 hover:text-blue-700 hover:underline">
+                  {post.client?.name}
+                </Link>
+                <span>{new Date(post.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
+              </div>
+            </div>
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${statusStyle.bg} ${statusStyle.text}`}>
+              <span className="text-xs">{statusStyle.icon}</span>
+              {post.status}
+            </span>
           </div>
-          <span
-            className={`text-sm font-semibold px-3 py-1 rounded-full capitalize ${
-              post.status === 'published'
-                ? 'bg-green-100 text-green-800'
-                : post.status === 'failed'
-                  ? 'bg-red-100 text-red-800'
-                  : post.status === 'scheduled'
-                    ? 'bg-amber-100 text-amber-800'
-                    : 'bg-gray-100 text-gray-700'
-            }`}
-          >
-            {post.status}
-          </span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Media + Captions */}
           <div className="lg:col-span-2 space-y-6">
-            <div className="card">
-              <h3 className="font-bold text-gray-900 mb-4">Media</h3>
-              {post.media.length === 0 ? (
-                <p className="text-gray-500 text-sm">No media attached</p>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {post.media
-                    .slice()
-                    .sort((a, b) => a.order - b.order)
-                    .map(({ media }) =>
-                      media.mimeType.startsWith('video/') ? (
-                        <div key={media.id} className="rounded-xl overflow-hidden bg-black">
-                          <video
-                            src={media.url}
-                            className="w-full aspect-video object-contain"
-                            muted
-                            playsInline
-                            controls
-                          />
-                        </div>
-                      ) : (
-                        <a
-                          key={media.id}
-                          href={media.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="block rounded-xl overflow-hidden border border-gray-200 hover:border-blue-300 transition-colors"
-                        >
-                          <img
-                            src={media.url}
-                            alt=""
-                            className="w-full h-auto object-cover max-h-80"
-                          />
-                        </a>
-                      ),
-                    )}
-                </div>
-              )}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <h2 className="font-semibold text-slate-900 flex items-center gap-2">
+                  <span className="w-1.5 h-4 rounded-full bg-blue-500" />
+                  Media
+                </h2>
+              </div>
+              <div className="p-5">
+                {post.media.length === 0 ? (
+                  <div className="py-12 text-center text-slate-500 text-sm rounded-xl bg-slate-50/50">
+                    No media attached
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {post.media
+                      .slice()
+                      .sort((a, b) => a.order - b.order)
+                      .map(({ media }) =>
+                        media.mimeType.startsWith('video/') ? (
+                          <div key={media.id} className="rounded-xl overflow-hidden bg-slate-900 ring-1 ring-slate-200/60">
+                            <video
+                              src={media.url}
+                              className="w-full aspect-video object-contain"
+                              muted
+                              playsInline
+                              controls
+                            />
+                          </div>
+                        ) : (
+                          <a
+                            key={media.id}
+                            href={media.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block rounded-xl overflow-hidden ring-1 ring-slate-200/60 hover:ring-blue-300 transition-all hover:shadow-md"
+                          >
+                            <img
+                              src={media.url}
+                              alt=""
+                              className="w-full h-48 object-cover"
+                            />
+                          </a>
+                        ),
+                      )}
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className="card">
-              <h3 className="font-bold text-gray-900 mb-3">Captions by platform</h3>
-              <div className="space-y-3">
-                {post.captions.map((c) => (
-                  <div key={c.platform} className="border-b border-gray-100 pb-3 last:border-0">
-                    <span className="text-xs font-semibold text-gray-500 uppercase">
-                      {c.platform}
-                    </span>
-                    <p className="text-gray-700 mt-1 whitespace-pre-wrap">{c.caption}</p>
-                    {c.includeLink && (
-                      <span className="text-xs text-blue-600">Link included</span>
-                    )}
-                  </div>
-                ))}
+          </div>
+
+          {/* Destinations - each with caption, hashtags, link */}
+          <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <h2 className="font-semibold text-slate-900 flex items-center gap-2">
+                  <span className="w-1.5 h-4 rounded-full bg-emerald-500" />
+                  Destinations
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">Caption, hashtags, and link for each platform</p>
+              </div>
+              <div className="p-5 space-y-4">
+                {post.destinations.map((d) => {
+                  const typeToPlatform: Record<string, string> = {
+                    facebook_page: 'facebook',
+                    instagram_business: 'instagram',
+                    tiktok_account: 'tiktok',
+                    twitter_account: 'twitter',
+                  };
+                  const platform = typeToPlatform[d.destination.type] || d.destination.type;
+                  const caption = post.captions.find((c) => c.platform === platform);
+                  return (
+                    <div
+                      key={d.destination.id}
+                      className="rounded-xl border border-slate-200 p-4 bg-slate-50/50 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div>
+                          <h3 className="font-semibold text-slate-900">
+                            {PLATFORM_LABELS[d.destination.type] || d.destination.type} · {d.destination.name}
+                          </h3>
+                          <span
+                            className={`inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-md ${
+                              d.status === 'published'
+                                ? 'bg-emerald-100 text-emerald-800'
+                                : d.status === 'failed'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-slate-200 text-slate-600'
+                            }`}
+                          >
+                            {d.status}
+                          </span>
+                        </div>
+                        {d.postUrl && (
+                          <a
+                            href={d.postUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
+                          >
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                            View post
+                          </a>
+                        )}
+                      </div>
+                      {caption && (
+                        <>
+                          <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed mb-2">
+                            {caption.caption || '—'}
+                          </p>
+                          {caption.hashtags?.trim() && (
+                            <p className="text-xs text-slate-600 mb-2">
+                              <span className="font-medium text-slate-500">Hashtags:</span> {caption.hashtags}
+                            </p>
+                          )}
+                          {caption.includeLink && (
+                            <span className="inline-flex items-center gap-1 text-xs text-blue-600">
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                              </svg>
+                              Product link included
+                            </span>
+                          )}
+                        </>
+                      )}
+                      {d.error && (
+                        <p className="mt-2 text-xs text-red-600">{d.error}</p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
 
+          {/* Sidebar */}
           <div className="space-y-6">
-            <div className="card">
-              <h3 className="font-bold text-gray-900 mb-3">Destinations</h3>
-              <ul className="space-y-2">
-                {post.destinations.map((d) => (
-                  <li
-                    key={d.destination.id}
-                    className="flex items-center justify-between text-sm"
-                  >
-                    <span>
-                      {PLATFORM_LABELS[d.destination.type] || d.destination.type} –{' '}
-                      {d.destination.name}
-                    </span>
-                    <span
-                      className={`text-xs font-medium px-2 py-0.5 rounded ${
-                        d.status === 'published'
-                          ? 'bg-green-100 text-green-800'
-                          : d.status === 'failed'
-                            ? 'bg-red-100 text-red-800'
-                            : 'bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      {d.status}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
 
             {post.products.length > 0 && (
-              <div className="card">
-                <h3 className="font-bold text-gray-900 mb-3">Products</h3>
-                <ul className="space-y-1">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div className="px-5 py-4 border-b border-slate-100">
+                  <h2 className="font-semibold text-slate-900 flex items-center gap-2">
+                    <span className="w-1.5 h-4 rounded-full bg-violet-500" />
+                    Products
+                  </h2>
+                </div>
+                <ul className="p-4 space-y-2">
                   {post.products.map(({ product, isPrimary }) => (
-                    <li key={product.slug} className="text-sm">
+                    <li key={product.slug} className="flex items-center gap-2 text-sm text-slate-700 py-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-slate-300" />
                       {product.title}
                       {isPrimary && (
-                        <span className="ml-2 text-xs text-blue-600">(primary)</span>
+                        <span className="text-xs text-blue-600 font-medium">primary</span>
                       )}
                     </li>
                   ))}

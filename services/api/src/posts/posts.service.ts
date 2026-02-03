@@ -48,35 +48,38 @@ export class PostsService {
       }
     }
 
-    // Validate products belong to the client
+    // Validate products belong to the tenant (products are tenant-scoped, not client-scoped)
     if (validated.productIds && validated.productIds.length > 0) {
       const products = await this.prisma.product.findMany({
         where: {
           id: { in: validated.productIds },
           tenantId,
-          clientId,
         },
       });
 
       if (products.length !== validated.productIds.length) {
-        throw new BadRequestException('One or more products do not belong to the selected client');
+        throw new BadRequestException('One or more products do not belong to the tenant');
       }
     }
 
-    // Validate media belongs to tenant (and optionally client)
-    if (validated.mediaIds && validated.mediaIds.length > 0) {
+    const allMediaIds = new Set(validated.mediaIds);
+    if (validated.mediaPerDestination) {
+      for (const ids of Object.values(validated.mediaPerDestination)) {
+        ids.forEach((id) => allMediaIds.add(id));
+      }
+    }
+    if (allMediaIds.size > 0) {
       const media = await this.prisma.media.findMany({
         where: {
-          id: { in: validated.mediaIds },
+          id: { in: Array.from(allMediaIds) },
           tenantId,
           OR: [
-            { clientId: null }, // Tenant-level media
-            { clientId }, // Client-specific media
+            { clientId: null },
+            { clientId },
           ],
         },
       });
-
-      if (media.length !== validated.mediaIds.length) {
+      if (media.length !== allMediaIds.size) {
         throw new BadRequestException('One or more media files do not belong to the tenant or client');
       }
     }
@@ -91,6 +94,7 @@ export class PostsService {
           create: Object.entries(validated.captions).map(([platform, caption]: [string, any]) => ({
             platform: platform as any,
             caption: caption.text,
+            hashtags: caption.hashtags ?? null,
             includeLink: caption.includeLink,
           })),
         },
@@ -109,10 +113,14 @@ export class PostsService {
             }
           : undefined,
         destinations: {
-          create: validated.destinationIds.map((destinationId) => ({
-            destinationId,
-            status: 'draft',
-          })),
+          create: validated.destinationIds.map((destinationId) => {
+            const mediaOverride = validated.mediaPerDestination?.[destinationId];
+            return {
+              destinationId,
+              status: 'draft',
+              mediaIds: mediaOverride ? (mediaOverride as any) : undefined,
+            };
+          }),
         },
       },
       include: {

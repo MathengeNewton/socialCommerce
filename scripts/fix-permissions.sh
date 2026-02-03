@@ -12,4 +12,5 @@ fi
 echo "Fixing ownership to $ME..."
 chown -R "$ME:$ME" node_modules packages/shared/node_modules apps/admin/node_modules apps/shop/node_modules services/api/node_modules services/worker/node_modules 2>/dev/null || true
 [ -d .pnpm-store ] && chown -R "$ME:$ME" .pnpm-store
-echo "Done. Run as yourself: pnpm install"
+[ -d services/api/dist ] && chown -R "$ME:$ME" services/api/dist
+echo "Done. Run as yourself: pnpm install (and pnpm build if needed)"
