@@ -14,7 +14,11 @@ export class TenantAdminGuard implements CanActivate {
       throw new ForbiddenException('Missing user context');
     }
 
-    // Tenant-admin is defined as: user has at least one admin membership in this tenant.
+    // Tenant-admin: User.role === 'admin' OR has at least one admin membership in this tenant.
+    if (request.user?.role === 'admin') {
+      return true;
+    }
+
     const adminMembership = await this.prisma.membership.findFirst({
       where: {
         userId,

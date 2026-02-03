@@ -26,7 +26,7 @@ export class TariffsService {
       data: {
         tenantId,
         name,
-        currency: data.currency || 'USD',
+        currency: data.currency || 'KES',
         minPostsPerWeek,
         rulesJson: data.rulesJson ?? {},
       },

@@ -1,153 +1,150 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import ShopHeader from './components/ShopHeader';
+
+const PRICE_RANGES = [
+  { label: 'All', min: undefined, max: undefined },
+  { label: '0 - 50K', min: 0, max: 50000 },
+  { label: '50K - 100K', min: 50000, max: 100000 },
+  { label: '100K - 500K', min: 100000, max: 500000 },
+  { label: '500K+', min: 500000, max: undefined },
+];
 
 export default function HomePage() {
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const apiUrl = useMemo(() => process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3004', []);
+  const tenantId = useMemo(() => process.env.NEXT_PUBLIC_STORE_TENANT_ID || '00000000-0000-0000-0000-000000000001', []);
+
+  const [categories, setCategories] = useState<{ id: string; name: string; slug: string; productCount?: number }[]>([]);
+  const [searchInput, setSearchInput] = useState('');
+  const [categorySlug, setCategorySlug] = useState<string>('');
+  const [priceRange, setPriceRange] = useState<{ min?: number; max?: number } | null>(null);
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchCategories = async () => {
       try {
-        const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-        const response = await fetch(`${apiUrl}/store/products?limit=8`);
-        const data = await response.json();
-        setProducts(data.products || []);
-      } catch (error) {
-        console.error('Error fetching products:', error);
-      } finally {
-        setLoading(false);
+        const res = await fetch(`${apiUrl}/store/categories?tenantId=${tenantId}&withProductCount=true`);
+        if (res.ok) {
+          const data = await res.json();
+          setCategories(data);
+        }
+      } catch (e) {
+        console.error('Failed to fetch categories', e);
       }
     };
+    fetchCategories();
+  }, [apiUrl, tenantId]);
 
-    fetchProducts();
-  }, []);
+  const topCategories = useMemo(
+    () => [...categories].sort((a, b) => (b.productCount ?? 0) - (a.productCount ?? 0)).slice(0, 2),
+    [categories]
+  );
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (searchInput.trim()) params.set('q', searchInput.trim());
+    if (categorySlug) params.set('cat', categorySlug);
+    if (priceRange?.min !== undefined) params.set('minPrice', String(priceRange.min));
+    if (priceRange?.max !== undefined) params.set('maxPrice', String(priceRange.max));
+    router.push(`/products?${params.toString()}`);
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50/30">
-      {/* Hero Header */}
-      <header className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-                </svg>
-              </div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                hhourssop
-              </h1>
-            </div>
-            <Link
-              href="/products"
-              className="flex items-center gap-2 text-gray-700 hover:text-blue-600 font-medium transition-colors"
-            >
-              <span>Browse All</span>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Link>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-screen bg-shop-bg flex flex-col">
+      <ShopHeader categories={categories} />
 
-      {/* Hero Section */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="text-center mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-            Welcome to hhourssop
-          </h2>
-          <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Discover products and shop the latest collection
-          </p>
-        </div>
+      <main className="flex-1">
+        {/* Hero - KAI & KARO style dark, minimalist */}
+        <section className="relative py-20 sm:py-28 overflow-hidden">
+          <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-serif font-bold text-shop-fg mb-6 tracking-tight">
+              Kenya&apos;s <span className="font-extrabold">largest</span> product marketplace
+            </h1>
+            <p className="text-lg sm:text-xl text-shop-muted mb-10 max-w-2xl mx-auto">
+              Discover and shop from our curated collection
+            </p>
 
-        {loading ? (
-          <div className="text-center py-20">
-            <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-            <p className="text-gray-600 font-medium">Loading products...</p>
-          </div>
-        ) : products.length === 0 ? (
-          <div className="text-center py-20">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-gray-100 rounded-3xl mb-6">
-              <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-2">No products available</h3>
-            <p className="text-gray-600">Check back soon for new arrivals!</p>
-          </div>
-        ) : (
-          <>
-            <div className="mb-8 flex items-center justify-between">
-              <h3 className="text-2xl font-bold text-gray-900">Featured Products</h3>
+            {/* Explore categories + top 2 categories */}
+            <div className="flex flex-wrap justify-center gap-3 mb-12">
               <Link
-                href="/products"
-                className="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1 group"
+                href="/categories"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-shop-fg text-shop-bg font-semibold rounded-lg hover:opacity-90 transition-opacity"
               >
-                View all
-                <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                Explore categories
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
               </Link>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {products.map((product) => (
+              {topCategories.map((cat) => (
                 <Link
-                  key={product.id}
-                  href={`/p/${product.slug}`}
-                  className="group bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden hover:shadow-2xl transition-all duration-200 transform hover:-translate-y-2"
+                  key={cat.id}
+                  href={`/products/${cat.slug}`}
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-shop-card border border-shop-border text-shop-fg font-medium rounded-lg hover:border-shop-muted transition-colors"
                 >
-                  <div className="aspect-square bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden">
-                    {product.images?.[0]?.media ? (
-                      <img
-                        src={product.images[0].media.url}
-                        alt={product.title}
-                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <svg className="w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                    )}
-                    <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold text-gray-700 shadow-lg">
-                      New
-                    </div>
-                  </div>
-                  <div className="p-5">
-                    <h3 className="font-bold text-lg text-gray-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-1">
-                      {product.title}
-                    </h3>
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-2 min-h-[2.5rem]">
-                      {product.description}
-                    </p>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                            {product.currency} {Number(product.listPrice || product.price).toFixed(2)}
-                          </p>
-                          {product.priceDisclaimer && (
-                            <p className="text-xs text-gray-500 italic mt-1">{product.priceDisclaimer}</p>
-                          )}
-                        </div>
-                        <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg font-semibold text-sm hover:shadow-lg transform hover:scale-105 transition-all opacity-0 group-hover:opacity-100">
-                          View
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  {cat.name}
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
                 </Link>
               ))}
             </div>
-          </>
-        )}
-      </section>
+
+            {/* Search + filters */}
+            <form onSubmit={handleSearch} className="max-w-2xl mx-auto">
+              <div className="flex flex-col sm:flex-row gap-3">
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search products by name..."
+                  className="flex-1 px-4 py-3 bg-shop-card border border-shop-border rounded-lg text-shop-fg placeholder-shop-muted focus:outline-none focus:ring-2 focus:ring-shop-accent focus:border-transparent"
+                />
+                <select
+                  value={categorySlug}
+                  onChange={(e) => setCategorySlug(e.target.value)}
+                  className="px-4 py-3 bg-shop-card border border-shop-border rounded-lg text-shop-fg focus:outline-none focus:ring-2 focus:ring-shop-accent"
+                >
+                  <option value="">All categories</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.slug}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  value={priceRange ? `${priceRange.min ?? ''}-${priceRange.max ?? ''}` : 'all'}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (!v || v === 'all') {
+                      setPriceRange(null);
+                      return;
+                    }
+                    const [min, max] = v.split('-').map((x) => (x ? parseInt(x, 10) : undefined));
+                    setPriceRange({ min, max });
+                  }}
+                  className="px-4 py-3 bg-shop-card border border-shop-border rounded-lg text-shop-fg focus:outline-none focus:ring-2 focus:ring-shop-accent"
+                >
+                  {PRICE_RANGES.map((r) => (
+                    <option key={r.label} value={r.label === 'All' ? 'all' : `${r.min ?? ''}-${r.max ?? ''}`}>
+                      {r.label === 'All' ? 'Price range' : r.label}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="submit"
+                  className="px-6 py-3 bg-shop-accent text-white font-semibold rounded-lg hover:bg-shop-accent-hover transition-colors"
+                >
+                  Search
+                </button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

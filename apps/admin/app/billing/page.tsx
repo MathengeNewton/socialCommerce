@@ -1,8 +1,20 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect, useState, useMemo } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import AdminNav from '../components/AdminNav';
+import { useToast } from '../components/ToastContext';
+import { useConfirm } from '../components/ConfirmContext';
+
+type Tariff = {
+  id: string;
+  name: string;
+  currency: string;
+  minPostsPerWeek?: number;
+  rulesJson?: Record<string, unknown>;
+  createdAt?: string;
+};
 
 type Invoice = {
   id: string;
@@ -29,9 +41,13 @@ type Client = {
   name: string;
 };
 
-export default function BillingPage() {
+function BillingContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const apiUrl = useMemo(() => process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3004', []);
+  const [tab, setTab] = useState<'invoices' | 'tariffs'>(() =>
+    searchParams.get('tab') === 'tariffs' ? 'tariffs' : 'invoices'
+  );
   const [loading, setLoading] = useState(true);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -39,6 +55,18 @@ export default function BillingPage() {
   const [generating, setGenerating] = useState(false);
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
+  const [tariffs, setTariffs] = useState<Tariff[]>([]);
+  const [tariffError, setTariffError] = useState('');
+  const [showCreateTariff, setShowCreateTariff] = useState(false);
+  const [showAssignTariff, setShowAssignTariff] = useState(false);
+  const [assignClientId, setAssignClientId] = useState('');
+  const [assignTariffId, setAssignTariffId] = useState('');
+  const [newTariffName, setNewTariffName] = useState('');
+  const [newTariffCurrency, setNewTariffCurrency] = useState('KES');
+  const [newTariffMinPosts, setNewTariffMinPosts] = useState(0);
+  const [tariffSaving, setTariffSaving] = useState(false);
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
 
   const authHeaders = () => {
     const token = localStorage.getItem('accessToken');
@@ -67,6 +95,31 @@ export default function BillingPage() {
 
     fetchClients();
   }, [apiUrl, router]);
+
+  useEffect(() => {
+    setTab(searchParams.get('tab') === 'tariffs' ? 'tariffs' : 'invoices');
+  }, [searchParams]);
+
+  const fetchTariffs = async () => {
+    const headers = authHeaders();
+    if (!headers) return;
+    const res = await fetch(`${apiUrl}/tariffs`, { headers });
+    if (res.ok) {
+      const data = await res.json();
+      setTariffs(Array.isArray(data) ? data : []);
+    }
+  };
+
+  useEffect(() => {
+    if (tab !== 'tariffs') return;
+    const headers = authHeaders();
+    if (!headers) return;
+    setTariffError('');
+    fetch(`${apiUrl}/tariffs`, { headers })
+      .then((r) => (r.ok ? r.json() : []))
+      .then((d) => setTariffs(Array.isArray(d) ? d : []))
+      .catch(() => setTariffError('Failed to load tariffs'));
+  }, [tab, apiUrl]);
 
   useEffect(() => {
     if (!selectedClientId) {
@@ -100,7 +153,7 @@ export default function BillingPage() {
 
   const handleGenerateInvoice = async () => {
     if (!selectedClientId || !periodStart || !periodEnd) {
-      alert('Please select a client and date range');
+      toast('Please select a client and date range', 'error');
       return;
     }
 
@@ -119,12 +172,12 @@ export default function BillingPage() {
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({ message: 'Failed to generate invoice' }));
-        alert(error.message || 'Failed to generate invoice');
+        toast(error.message || 'Failed to generate invoice', 'error');
         return;
       }
 
       const invoice = await res.json();
-      alert('Invoice generated successfully!');
+      toast('Invoice generated successfully!', 'success');
       setPeriodStart('');
       setPeriodEnd('');
       // Refresh invoices
@@ -137,14 +190,15 @@ export default function BillingPage() {
       }
     } catch (error) {
       console.error('Error generating invoice:', error);
-      alert('Failed to generate invoice');
+      toast('Failed to generate invoice', 'error');
     } finally {
       setGenerating(false);
     }
   };
 
   const handleMarkPaid = async (invoiceId: string) => {
-    if (!confirm('Mark this invoice as paid?')) return;
+    const ok = await confirm({ message: 'Mark this invoice as paid?', title: 'Confirm' });
+    if (!ok) return;
 
     const headers = authHeaders();
     if (!headers) return;
@@ -156,7 +210,7 @@ export default function BillingPage() {
       });
 
       if (!res.ok) {
-        alert('Failed to mark invoice as paid');
+        toast('Failed to mark invoice as paid', 'error');
         return;
       }
 
@@ -172,7 +226,7 @@ export default function BillingPage() {
       }
     } catch (error) {
       console.error('Error marking invoice as paid:', error);
-      alert('Failed to mark invoice as paid');
+      toast('Failed to mark invoice as paid', 'error');
     }
   };
 
@@ -188,25 +242,166 @@ export default function BillingPage() {
     }).format(amount);
   };
 
+  const createTariff = async () => {
+    setTariffError('');
+    const headers = authHeaders();
+    if (!headers || !newTariffName.trim()) return;
+    setTariffSaving(true);
+    try {
+      const res = await fetch(`${apiUrl}/tariffs`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newTariffName.trim(), currency: newTariffCurrency, minPostsPerWeek: newTariffMinPosts }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Failed');
+      setShowCreateTariff(false);
+      setNewTariffName('');
+      await fetchTariffs();
+    } catch (e) {
+      setTariffError(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setTariffSaving(false);
+    }
+  };
+
+  const assignTariff = async () => {
+    setTariffError('');
+    const headers = authHeaders();
+    if (!headers || !assignClientId || !assignTariffId) return;
+    setTariffSaving(true);
+    try {
+      const res = await fetch(`${apiUrl}/clients/${assignClientId}/tariff`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tariffId: assignTariffId }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).message || 'Failed');
+      setShowAssignTariff(false);
+      setAssignClientId('');
+      setAssignTariffId('');
+    } catch (e) {
+      setTariffError(e instanceof Error ? e.message : 'Failed');
+    } finally {
+      setTariffSaving(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30">
-      {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                hhourssop · Billing & Invoices
-              </h1>
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <AdminNav title="hhourssop · Billing" backHref="/dashboard" />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex gap-2 mb-6 border-b border-gray-200">
+          <button
+            onClick={() => setTab('invoices')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'invoices' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            Invoices
+          </button>
+          <button
+            onClick={() => setTab('tariffs')}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${tab === 'tariffs' ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+          >
+            Tariffs
+          </button>
+        </div>
+
+        {tab === 'tariffs' ? (
+          <>
+            <div className="flex justify-end gap-2 mb-4">
+              <button onClick={() => { setShowAssignTariff(true); setAssignClientId(clients[0]?.id ?? ''); setAssignTariffId(tariffs[0]?.id ?? ''); }} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">
+                Assign to client
+              </button>
+              <button onClick={() => setShowCreateTariff(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700">
+                Create tariff
+              </button>
+            </div>
+            {tariffError && <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{tariffError}</div>}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              {tariffs.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 mb-4">No tariffs yet</p>
+                  <button onClick={() => setShowCreateTariff(true)} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium">
+                    Create tariff
+                  </button>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Name</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Currency</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">Min posts/week</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {tariffs.map((t) => (
+                      <tr key={t.id} className="hover:bg-gray-50">
+                        <td className="py-3 px-4 font-medium">{t.name}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{t.currency}</td>
+                        <td className="py-3 px-4 text-sm text-gray-600">{t.minPostsPerWeek ?? 0}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {showCreateTariff && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl max-w-md w-full p-6">
+                  <h2 className="text-lg font-bold mb-4">Create tariff</h2>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                      <input type="text" value={newTariffName} onChange={(e) => setNewTariffName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" placeholder="e.g. Starter" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Currency</label>
+                      <select value={newTariffCurrency} onChange={(e) => setNewTariffCurrency(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        <option value="KES">KES</option>
+                        <option value="USD">USD</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Min posts per week</label>
+                      <input type="number" min={0} value={newTariffMinPosts} onChange={(e) => setNewTariffMinPosts(parseInt(e.target.value, 10) || 0)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 mt-4">
+                    <button onClick={() => setShowCreateTariff(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm">Cancel</button>
+                    <button onClick={createTariff} disabled={tariffSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">{tariffSaving ? 'Creating…' : 'Create'}</button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {showAssignTariff && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-xl max-w-md w-full p-6">
+                  <h2 className="text-lg font-bold mb-4">Assign tariff to client</h2>
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Client</label>
+                      <select value={assignClientId} onChange={(e) => setAssignClientId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        {clients.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tariff</label>
+                      <select value={assignTariffId} onChange={(e) => setAssignTariffId(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                        {tariffs.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 mt-4">
+                    <button onClick={() => setShowAssignTariff(false)} className="px-4 py-2 border border-gray-300 rounded-lg text-sm">Cancel</button>
+                    <button onClick={assignTariff} disabled={tariffSaving} className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm disabled:opacity-50">{tariffSaving ? 'Assigning…' : 'Assign'}</button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
         {/* Client Selection */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-6 mb-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Select Client</h2>
@@ -345,7 +540,17 @@ export default function BillingPage() {
             )}
           </div>
         )}
+          </>
+        )}
       </main>
     </div>
+  );
+}
+
+export default function BillingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-2 border-blue-600 border-t-transparent" /></div>}>
+      <BillingContent />
+    </Suspense>
   );
 }

@@ -3,6 +3,8 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useToast } from '../../components/ToastContext';
+import { useConfirm } from '../../components/ConfirmContext';
 
 type Invoice = {
   id: string;
@@ -33,6 +35,8 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [markingPaid, setMarkingPaid] = useState(false);
+  const { toast } = useToast();
+  const { confirm } = useConfirm();
 
   const authHeaders = () => {
     const token = localStorage.getItem('accessToken');
@@ -55,12 +59,12 @@ export default function InvoiceDetailPage() {
           const data = await res.json();
           setInvoice(data);
         } else if (res.status === 404) {
-          alert('Invoice not found');
+          toast('Invoice not found', 'error');
           router.push('/billing');
         }
       } catch (error) {
         console.error('Error fetching invoice:', error);
-        alert('Failed to load invoice');
+        toast('Failed to load invoice', 'error');
       } finally {
         setLoading(false);
       }
@@ -72,7 +76,8 @@ export default function InvoiceDetailPage() {
   }, [invoiceId, apiUrl, router]);
 
   const handleMarkPaid = async () => {
-    if (!confirm('Mark this invoice as paid?')) return;
+    const ok = await confirm({ message: 'Mark this invoice as paid?', title: 'Confirm' });
+    if (!ok) return;
 
     setMarkingPaid(true);
     const headers = authHeaders();
@@ -85,7 +90,7 @@ export default function InvoiceDetailPage() {
       });
 
       if (!res.ok) {
-        alert('Failed to mark invoice as paid');
+        toast('Failed to mark invoice as paid', 'error');
         return;
       }
 
@@ -93,7 +98,7 @@ export default function InvoiceDetailPage() {
       setInvoice(updatedInvoice);
     } catch (error) {
       console.error('Error marking invoice as paid:', error);
-      alert('Failed to mark invoice as paid');
+      toast('Failed to mark invoice as paid', 'error');
     } finally {
       setMarkingPaid(false);
     }

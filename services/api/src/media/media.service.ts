@@ -119,6 +119,14 @@ export class MediaService {
     return { mediaId: media.id, url: displayUrl };
   }
 
+  /** Resolve media URL for display: Cloudinary URLs pass through, S3 keys get signed URLs. */
+  async resolveMediaUrl(storedUrl: string): Promise<string> {
+    if (this.s3Service.isS3Key(storedUrl)) {
+      return this.s3Service.getSignedUrl(storedUrl);
+    }
+    return storedUrl;
+  }
+
   async getMedia(mediaId: string, tenantId: string) {
     const media = await this.prisma.media.findFirst({
       where: {

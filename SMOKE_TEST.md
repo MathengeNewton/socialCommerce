@@ -36,7 +36,7 @@ This guide walks through testing the complete workflow end-to-end.
 ### 3. Connect Social Platform
 - Click "Connect accounts" for the client
 - Or navigate to Settings page
-- Connect at least one platform (Facebook, Instagram, Twitter, or Pinterest)
+- Connect at least one platform (Facebook, Instagram, or TikTok)
 - Verify integration appears in list
 - Verify destinations are refreshed and appear
 

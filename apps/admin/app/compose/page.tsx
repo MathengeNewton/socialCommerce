@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import AdminNav from '../components/AdminNav';
+import { useToast } from '../components/ToastContext';
 
 export default function ComposePage() {
   const router = useRouter();
@@ -21,14 +23,14 @@ export default function ComposePage() {
   const [captions, setCaptions] = useState<Record<string, { text: string; includeLink: boolean }>>({
     facebook: { text: '', includeLink: true },
     instagram: { text: '', includeLink: true },
-    twitter: { text: '', includeLink: true },
-    pinterest: { text: '', includeLink: true },
+    tiktok: { text: '', includeLink: true },
   });
   const [createdPostId, setCreatedPostId] = useState<string | null>(null);
   const [showPublishActions, setShowPublishActions] = useState(false);
   const [scheduleDateTime, setScheduleDateTime] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [scheduling, setScheduling] = useState(false);
+  const { toast } = useToast();
 
   useEffect(() => {
     const fetchClients = async () => {
@@ -121,7 +123,7 @@ export default function ComposePage() {
       setShowPublishActions(true);
     } catch (error) {
       console.error('Error creating post:', error);
-      alert('Failed to create post. Please try again.');
+      toast('Failed to create post. Please try again.', 'error');
     } finally {
       setLoading(false);
     }
@@ -141,7 +143,7 @@ export default function ComposePage() {
       router.push('/dashboard');
     } catch (error) {
       console.error('Error publishing:', error);
-      alert('Failed to publish. Please try again.');
+      toast('Failed to publish. Please try again.', 'error');
     } finally {
       setPublishing(false);
     }
@@ -149,12 +151,12 @@ export default function ComposePage() {
 
   const handleSchedule = async () => {
     if (!createdPostId || !scheduleDateTime) {
-      alert('Please select a date and time.');
+      toast('Please select a date and time.', 'error');
       return;
     }
     const scheduledAt = new Date(scheduleDateTime).toISOString();
     if (new Date(scheduledAt) <= new Date()) {
-      alert('Please select a future date and time.');
+      toast('Please select a future date and time.', 'error');
       return;
     }
     setScheduling(true);
@@ -173,7 +175,7 @@ export default function ComposePage() {
       router.push('/dashboard');
     } catch (error) {
       console.error('Error scheduling:', error);
-      alert('Failed to schedule. Please try again.');
+      toast('Failed to schedule. Please try again.', 'error');
     } finally {
       setScheduling(false);
     }
@@ -182,8 +184,7 @@ export default function ComposePage() {
   const CAPTION_LIMITS = {
     facebook: 5000,
     instagram: 2200,
-    twitter: 280,
-    pinterest: 500,
+    tiktok: 2200,
   };
 
   const getCaptionLength = (platform: string) => captions[platform]?.text?.length || 0;
@@ -191,38 +192,24 @@ export default function ComposePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30">
-      {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                hhourssop · Create Post
-              </h1>
-            </Link>
-            <div className="flex gap-3">
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSubmit}
-                disabled={loading || step < 4 || !selectedClientId}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
-              >
-                {loading ? 'Saving...' : 'Save Draft'}
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <AdminNav title="hhourssop · Create Post" backHref="/dashboard" />
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-end gap-3 mb-6">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors font-medium"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={loading || step < 4 || !selectedClientId}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+          >
+            {loading ? 'Saving...' : 'Save Draft'}
+          </button>
+        </div>
         {showPublishActions && createdPostId ? (
           <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8 max-w-md mx-auto">
             <div className="flex items-center gap-3 mb-6">
@@ -557,7 +544,7 @@ export default function ComposePage() {
             <div className="animate-fade-in">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Write Captions</h2>
               <div className="space-y-6">
-                {['facebook', 'instagram', 'twitter', 'pinterest'].map((platform) => {
+                {['facebook', 'instagram', 'tiktok'].map((platform) => {
                   const isSelected = selectedDestinations.some(
                     (destId) => destinations.find((d) => d.id === destId)?.type.includes(platform),
                   );

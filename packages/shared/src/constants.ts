@@ -29,15 +29,13 @@ export const ORDER_STATUSES = {
 export const INTEGRATION_PROVIDERS = {
   FACEBOOK: 'facebook',
   INSTAGRAM: 'instagram',
-  TWITTER: 'twitter',
-  PINTEREST: 'pinterest',
+  TIKTOK: 'tiktok',
 } as const;
 
 export const DESTINATION_TYPES = {
   FACEBOOK_PAGE: 'facebook_page',
   INSTAGRAM_BUSINESS: 'instagram_business',
-  TWITTER_ACCOUNT: 'twitter_account',
-  PINTEREST_BOARD: 'pinterest_board',
+  TIKTOK_ACCOUNT: 'tiktok_account',
 } as const;
 
 // Media validation
@@ -51,17 +49,16 @@ export const ALLOWED_MIME_TYPES = [
 export const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 // Caption limits per platform
+// Caption limits per platform (Facebook 5000, Instagram 2200, TikTok 2200)
 export const CAPTION_LIMITS = {
   facebook: 5000,
   instagram: 2200,
-  twitter: 280,
-  pinterest: 500,
+  tiktok: 2200,
 } as const;
 
 // Rate limits per platform (requests per minute)
 export const RATE_LIMITS = {
   facebook: 200,
   instagram: 200,
-  twitter: 300,
-  pinterest: 100,
+  tiktok: 100,
 } as const;

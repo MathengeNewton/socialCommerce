@@ -10,9 +10,23 @@ export const refreshTokenSchema = z.object({
   refreshToken: z.string(),
 });
 
+export const createUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+  name: z.string().min(1).max(255),
+  role: z.enum(['admin', 'staff']),
+});
+
+export const updateUserSchema = z.object({
+  name: z.string().min(1).max(255).optional(),
+  role: z.enum(['admin', 'staff']).optional(),
+  password: z.string().min(8).optional(),
+});
+
 // Product schemas
 const productBaseSchema = z.object({
   supplierId: z.string().uuid(),
+  categoryId: z.string().uuid().nullable().optional(),
   title: z.string().min(1).max(255),
   description: z.string().max(5000),
   price: z.number().positive(), // Legacy field, use listPrice
@@ -25,6 +39,7 @@ const productBaseSchema = z.object({
   priceDisclaimer: z.string().max(500).optional(),
   variantName: z.string().optional(),
   variantOptions: z.array(z.string()).optional(),
+  imageIds: z.array(z.string().uuid()).optional(),
 });
 
 export const createProductSchema = productBaseSchema.refine((data) => data.listPrice >= data.minSellPrice, {
@@ -63,7 +78,7 @@ export const mediaConfirmSchema = z.object({
 // Post schemas
 export const createPostSchema = z.object({
   captions: z.record(
-    z.enum(['facebook', 'instagram', 'twitter', 'pinterest']),
+    z.enum(['facebook', 'instagram', 'tiktok']),
     z.object({
       text: z.string(),
       includeLink: z.boolean(),
@@ -89,7 +104,7 @@ export const schedulePostSchema = z.object({
 
 // Integration schemas
 export const connectIntegrationSchema = z.object({
-  provider: z.enum(['facebook', 'instagram', 'twitter', 'pinterest']),
+  provider: z.enum(['facebook', 'instagram', 'tiktok']),
   code: z.string(),
   redirectUri: z.string().url(),
 });
@@ -104,9 +119,14 @@ export const createOrderSchema = z.object({
     })
   ),
   customerName: z.string().min(1),
-  customerEmail: z.string().email(),
+  customerEmail: z
+    .string()
+    .min(1, 'Email is required')
+    .refine((val) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val), 'Please enter a valid email address'),
   customerPhone: z.string().optional(),
   customerAddress: z.string().optional(),
+  deliveryType: z.enum(['pickup', 'delivery']).default('pickup'),
+  customerPreference: z.string().optional(),
 });
 
 // Cart schemas

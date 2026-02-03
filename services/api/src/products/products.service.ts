@@ -10,7 +10,7 @@ export class ProductsService {
     private auditService: AuditService,
   ) {}
 
-  async create(tenantId: string, clientId: string, createDto: any, userId?: string) {
+  async create(tenantId: string, createDto: any, userId?: string) {
     const validated = createProductSchema.parse(createDto);
 
     // Verify supplier exists and belongs to tenant
@@ -46,8 +46,8 @@ export class ProductsService {
     const product = await this.prisma.product.create({
       data: {
         tenantId,
-        clientId,
         supplierId: validated.supplierId,
+        categoryId: validated.categoryId || null,
         title: validated.title,
         description: validated.description,
         price: validated.listPrice, // Keep legacy field for backward compatibility
@@ -60,6 +60,17 @@ export class ProductsService {
         priceDisclaimer: validated.priceDisclaimer || null,
       },
     });
+
+    // Create product images if provided
+    if (validated.imageIds && validated.imageIds.length > 0) {
+      await this.prisma.productImage.createMany({
+        data: validated.imageIds.map((mediaId, index) => ({
+          productId: product.id,
+          mediaId,
+          order: index,
+        })),
+      });
+    }
 
     // Create variants if provided
     if (validated.variantName && validated.variantOptions) {
@@ -87,30 +98,47 @@ export class ProductsService {
     return created;
   }
 
-  async findAll(tenantId: string, clientId?: string) {
+  async findAll(
+    tenantId: string,
+    categoryId?: string,
+    page = 1,
+    limit = 10,
+  ): Promise<{ products: any[]; total: number; page: number; limit: number; totalPages: number }> {
     const where: any = { tenantId };
-    if (clientId) {
-      where.clientId = clientId;
+    if (categoryId) {
+      where.categoryId = categoryId;
     }
 
-    return this.prisma.product.findMany({
-      where,
-      include: {
-        supplier: true,
-        variants: true,
-        images: {
-          include: {
-            media: true,
-          },
-          orderBy: {
-            order: 'asc',
+    const [products, total] = await Promise.all([
+      this.prisma.product.findMany({
+        where,
+        include: {
+          supplier: true,
+          category: { select: { id: true, name: true, slug: true } },
+          variants: true,
+          images: {
+            include: {
+              media: true,
+            },
+            orderBy: {
+              order: 'asc',
+            },
           },
         },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+      this.prisma.product.count({ where }),
+    ]);
+
+    return {
+      products,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit) || 1,
+    };
   }
 
   async findOne(tenantId: string, slug: string) {
@@ -121,6 +149,7 @@ export class ProductsService {
       },
       include: {
         supplier: true,
+        category: { select: { id: true, name: true, slug: true } },
         variants: true,
         images: {
           include: {
@@ -207,6 +236,23 @@ export class ProductsService {
     }
     if (validated.priceDisclaimer !== undefined) {
       updateData.priceDisclaimer = validated.priceDisclaimer || null;
+    }
+    if (validated.categoryId !== undefined) {
+      updateData.categoryId = validated.categoryId || null;
+    }
+
+    // Update product images if provided
+    if (validated.imageIds !== undefined) {
+      await this.prisma.productImage.deleteMany({ where: { productId: id } });
+      if (validated.imageIds.length > 0) {
+        await this.prisma.productImage.createMany({
+          data: validated.imageIds.map((mediaId, index) => ({
+            productId: id,
+            mediaId,
+            order: index,
+          })),
+        });
+      }
     }
 
     const updated = await this.prisma.product.update({

@@ -31,13 +31,14 @@ async function main() {
   const passwordHash = await bcrypt.hash('admin123', 10);
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@demo.com' },
-    update: {},
+    update: { role: 'admin' },
     create: {
       id: '00000000-0000-0000-0000-000000000003',
       tenantId: tenant.id,
       email: 'admin@demo.com',
       passwordHash,
       name: 'Admin User',
+      role: 'admin',
     },
   });
 
@@ -57,6 +58,72 @@ async function main() {
     },
   });
 
+  // Create staff user (limited access: posts, products, orders)
+  const staffPasswordHash = await bcrypt.hash('staff123', 10);
+  const staffUser = await prisma.user.upsert({
+    where: { email: 'staff@demo.com' },
+    update: { role: 'staff' },
+    create: {
+      tenantId: tenant.id,
+      email: 'staff@demo.com',
+      passwordHash: staffPasswordHash,
+      name: 'Staff User',
+      role: 'staff',
+    },
+  });
+  await prisma.membership.upsert({
+    where: {
+      userId_clientId: {
+        userId: staffUser.id,
+        clientId: client.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: staffUser.id,
+      clientId: client.id,
+      role: 'staff',
+    },
+  });
+
+  // Create demo categories
+  const catVehicles = await prisma.productCategory.upsert({
+    where: {
+      tenantId_slug: { tenantId: tenant.id, slug: 'vehicles' },
+    },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: 'Vehicles',
+      slug: 'vehicles',
+      order: 0,
+    },
+  });
+  const catBikes = await prisma.productCategory.upsert({
+    where: {
+      tenantId_slug: { tenantId: tenant.id, slug: 'bikes' },
+    },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: 'Bikes',
+      slug: 'bikes',
+      order: 1,
+    },
+  });
+  const catApparel = await prisma.productCategory.upsert({
+    where: {
+      tenantId_slug: { tenantId: tenant.id, slug: 'apparel' },
+    },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      name: 'Apparel',
+      slug: 'apparel',
+      order: 2,
+    },
+  });
+
   // Create demo supplier (required for products)
   const supplier = await prisma.supplier.upsert({
     where: { id: '00000000-0000-0000-0000-000000000004' },
@@ -69,16 +136,28 @@ async function main() {
     },
   });
 
-  // Create demo products
-  const product1 = await prisma.product.create({
-    data: {
-      tenantId: tenant.id,
-      clientId: client.id,
-      supplierId: supplier.id,
+  // Create or update demo products (idempotent)
+  const product1 = await prisma.product.upsert({
+    where: {
+      tenantId_slug: { tenantId: tenant.id, slug: 'demo-t-shirt' },
+    },
+    update: {
       title: 'Demo T-Shirt',
       description: 'A cool demo t-shirt for testing the platform',
       price: 29.99,
-      currency: 'USD',
+      supplyPrice: 15,
+      minSellPrice: 25,
+      listPrice: 29.99,
+      status: 'published',
+    },
+    create: {
+      tenantId: tenant.id,
+      supplierId: supplier.id,
+      categoryId: catApparel.id,
+      title: 'Demo T-Shirt',
+      description: 'A cool demo t-shirt for testing the platform',
+      price: 29.99,
+      currency: 'KES',
       supplyPrice: 15,
       minSellPrice: 25,
       listPrice: 29.99,
@@ -86,35 +165,35 @@ async function main() {
       status: 'published',
       variants: {
         create: [
-          {
-            sku: 'TSHIRT-SM-BLUE',
-            name: 'Size: Small, Color: Blue',
-            stock: 10,
-          },
-          {
-            sku: 'TSHIRT-MD-BLUE',
-            name: 'Size: Medium, Color: Blue',
-            stock: 15,
-          },
-          {
-            sku: 'TSHIRT-LG-BLUE',
-            name: 'Size: Large, Color: Blue',
-            stock: 8,
-          },
+          { sku: 'TSHIRT-SM-BLUE', name: 'Size: Small, Color: Blue', stock: 10 },
+          { sku: 'TSHIRT-MD-BLUE', name: 'Size: Medium, Color: Blue', stock: 15 },
+          { sku: 'TSHIRT-LG-BLUE', name: 'Size: Large, Color: Blue', stock: 8 },
         ],
       },
     },
   });
 
-  const product2 = await prisma.product.create({
-    data: {
-      tenantId: tenant.id,
-      clientId: client.id,
-      supplierId: supplier.id,
+  const product2 = await prisma.product.upsert({
+    where: {
+      tenantId_slug: { tenantId: tenant.id, slug: 'demo-hoodie' },
+    },
+    update: {
       title: 'Demo Hoodie',
       description: 'A warm demo hoodie perfect for any occasion',
       price: 59.99,
-      currency: 'USD',
+      supplyPrice: 30,
+      minSellPrice: 50,
+      listPrice: 59.99,
+      status: 'published',
+    },
+    create: {
+      tenantId: tenant.id,
+      supplierId: supplier.id,
+      categoryId: catApparel.id,
+      title: 'Demo Hoodie',
+      description: 'A warm demo hoodie perfect for any occasion',
+      price: 59.99,
+      currency: 'KES',
       supplyPrice: 30,
       minSellPrice: 50,
       listPrice: 59.99,
@@ -122,23 +201,20 @@ async function main() {
       status: 'published',
       variants: {
         create: [
-          {
-            sku: 'HOODIE-MD-BLACK',
-            name: 'Size: Medium, Color: Black',
-            stock: 5,
-          },
-          {
-            sku: 'HOODIE-LG-BLACK',
-            name: 'Size: Large, Color: Black',
-            stock: 7,
-          },
+          { sku: 'HOODIE-MD-BLACK', name: 'Size: Medium, Color: Black', stock: 5 },
+          { sku: 'HOODIE-LG-BLACK', name: 'Size: Large, Color: Black', stock: 7 },
         ],
       },
     },
   });
 
-  // Create demo draft post
-  const draftPost = await prisma.post.create({
+  // Create demo draft post only if none exists for this client (idempotent)
+  let draftPost = await prisma.post.findFirst({
+    where: { clientId: client.id, status: 'draft' },
+    orderBy: { createdAt: 'desc' },
+  });
+  if (!draftPost) {
+    draftPost = await prisma.post.create({
     data: {
       tenantId: tenant.id,
       clientId: client.id,
@@ -146,17 +222,17 @@ async function main() {
       captions: {
         create: [
           {
-            platform: 'facebook',
+            platform: 'facebook' as const,
             caption: 'Check out our amazing new products! 🎉',
             includeLink: true,
           },
           {
-            platform: 'instagram',
+            platform: 'instagram' as const,
             caption: 'New collection just dropped! ✨ Check the link in bio',
             includeLink: true,
           },
           {
-            platform: 'twitter',
+            platform: 'tiktok',
             caption: 'New products available now! 🛍️',
             includeLink: true,
           },
@@ -175,12 +251,15 @@ async function main() {
         ],
       },
     },
-  });
+    });
+  }
 
   console.log('Seed data created:');
   console.log(`- Tenant: ${tenant.name} (${tenant.id})`);
   console.log(`- Client: ${client.name} (${client.id})`);
   console.log(`- Admin User: ${adminUser.email} (${adminUser.id})`);
+  console.log(`- Staff User: ${staffUser.email} (${staffUser.id})`);
+
   console.log(`- Products: ${product1.title}, ${product2.title}`);
   console.log(`- Draft Post: ${draftPost.id}`);
 }

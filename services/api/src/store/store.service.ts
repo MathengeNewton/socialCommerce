@@ -5,18 +5,65 @@ import { PrismaService } from '../prisma/prisma.service';
 export class StoreService {
   constructor(private prisma: PrismaService) {}
 
+  async getCategories(tenantId?: string, withProductCount?: boolean) {
+    if (!tenantId) return [];
+
+    const categories = await this.prisma.productCategory.findMany({
+      where: { tenantId },
+      orderBy: [{ order: 'asc' }, { name: 'asc' }],
+      include:
+        withProductCount
+          ? { _count: { select: { products: true } } }
+          : undefined,
+    });
+    return categories.map((c) => {
+      const base = { id: c.id, name: c.name, slug: c.slug, order: c.order };
+      if (withProductCount && '_count' in c) {
+        return { ...base, productCount: (c as any)._count?.products ?? 0 };
+      }
+      return base;
+    });
+  }
+
   async getProducts(options: {
     page: number;
     limit: number;
     search?: string;
-    clientId?: string;
+    categoryId?: string;
+    categorySlug?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    supplierId?: string;
+    tenantId?: string;
   }) {
     const where: any = {
       status: 'published',
     };
 
-    if (options.clientId) {
-      where.clientId = options.clientId;
+    if (options.tenantId) {
+      where.tenantId = options.tenantId;
+    }
+
+    if (options.categoryId) {
+      where.categoryId = options.categoryId;
+    }
+
+    if (options.categorySlug) {
+      const cat = await this.prisma.productCategory.findFirst({
+        where: { slug: options.categorySlug },
+        select: { id: true },
+      });
+      if (cat) where.categoryId = cat.id;
+    }
+
+    if (options.supplierId) {
+      where.supplierId = options.supplierId;
+    }
+
+    if (options.minPrice != null || options.maxPrice != null) {
+      where.listPrice = {};
+      if (options.minPrice != null) where.listPrice.gte = options.minPrice;
+      if (options.maxPrice != null) where.listPrice.lte = options.maxPrice;
     }
 
     if (options.search) {
@@ -35,6 +82,7 @@ export class StoreService {
         take: options.limit,
         include: {
           supplier: true,
+          category: { select: { id: true, name: true, slug: true } },
           variants: true,
           images: {
             include: {
@@ -43,7 +91,7 @@ export class StoreService {
             orderBy: {
               order: 'asc',
             },
-            take: 1, // Just first image for listing
+            take: 1,
           },
         },
         orderBy: {
@@ -64,14 +112,14 @@ export class StoreService {
     };
   }
 
-  async getProduct(slug: string, clientId?: string) {
+  async getProduct(slug: string, tenantId?: string) {
     const where: any = {
       slug,
       status: 'published',
     };
 
-    if (clientId) {
-      where.clientId = clientId;
+    if (tenantId) {
+      where.tenantId = tenantId;
     }
 
     const product = await this.prisma.product.findFirst({
@@ -132,5 +180,20 @@ export class StoreService {
         price: Number(item.price),
       })),
     };
+  }
+
+  async submitContact(tenantId: string, data: { name: string; phone: string; message: string }) {
+    const { name, phone, message } = data;
+    if (!name?.trim() || !phone?.trim() || !message?.trim()) {
+      throw new Error('Name, phone, and message are required');
+    }
+    return this.prisma.contactMessage.create({
+      data: {
+        tenantId,
+        name: name.trim(),
+        phone: phone.trim(),
+        message: message.trim(),
+      },
+    });
   }
 }

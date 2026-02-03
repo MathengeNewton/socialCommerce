@@ -60,11 +60,8 @@ export class PublishingProcessor extends WorkerHost {
         case 'instagram':
           externalPostId = await this.publishToInstagram(decryptedToken, caption, mediaUrls);
           break;
-        case 'twitter':
-          externalPostId = await this.publishToTwitter(decryptedToken, caption, mediaUrls);
-          break;
-        case 'pinterest':
-          externalPostId = await this.publishToPinterest(decryptedToken, caption, mediaUrls);
+        case 'tiktok':
+          externalPostId = await this.publishToTikTok(decryptedToken, caption, mediaUrls);
           break;
         default:
           throw new Error(`Unsupported platform: ${platform}`);
@@ -228,21 +225,14 @@ export class PublishingProcessor extends WorkerHost {
     return `ig_post_${Date.now()}`;
   }
 
-  private async publishToTwitter(
+  private async publishToTikTok(
     accessToken: string,
     caption: string,
     mediaUrls: string[],
   ): Promise<string> {
-    // Mock implementation - would use Twitter API v2
-    return `tw_post_${Date.now()}`;
-  }
-
-  private async publishToPinterest(
-    accessToken: string,
-    caption: string,
-    mediaUrls: string[],
-  ): Promise<string> {
-    // Mock implementation - would use Pinterest API
-    return `pin_post_${Date.now()}`;
+    // Placeholder - TikTok Content Posting API
+    // Docs: https://developers.tiktok.com/doc/content-posting-api-get-started
+    // Requires: video.publish or video.upload scope, user access token
+    return `tiktok_post_${Date.now()}`;
   }
 }

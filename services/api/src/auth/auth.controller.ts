@@ -3,6 +3,7 @@ import {
   Post,
   Body,
   Get,
+  Patch,
   UseGuards,
   Request,
   UnauthorizedException,
@@ -42,7 +43,23 @@ export class AuthController {
 
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  getMe(@Request() req) {
-    return req.user;
+  async getMe(@Request() req) {
+    const profile = await this.authService.getProfile(req.user.id);
+    if (!profile) throw new UnauthorizedException('User not found');
+    return profile;
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('me')
+  async updateMe(
+    @Request() req,
+    @Body()
+    body: {
+      name?: string;
+      currentPassword?: string;
+      newPassword?: string;
+    },
+  ) {
+    return this.authService.updateMe(req.user.id, body);
   }
 }

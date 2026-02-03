@@ -15,8 +15,8 @@ fi
 if [ -f ".env" ]; then
     export $(cat .env | grep -v '^#' | xargs)
 else
-    echo "⚠️  No .env file found, using defaults"
-    export DATABASE_URL="postgresql://postgres:postgres@localhost:5432/social_commerce"
+    echo "⚠️  No .env file found, using defaults (DB in Docker uses port 5436)"
+    export DATABASE_URL="postgresql://postgres:postgres@localhost:5436/social_commerce"
     export REDIS_URL="redis://localhost:6379"
     export S3_ENDPOINT="http://localhost:9000"
     export S3_ACCESS_KEY="minioadmin"
@@ -27,12 +27,14 @@ else
     export PORT=3001
 fi
 
-# Generate Prisma client if needed
-if [ ! -d "node_modules/.prisma" ]; then
-    echo "📊 Generating Prisma client..."
-    export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5432/social_commerce}"
-    npx prisma generate || echo "⚠️  Prisma generate failed"
-fi
+# Generate Prisma client
+echo "📊 Generating Prisma client..."
+export DATABASE_URL="${DATABASE_URL:-postgresql://postgres:postgres@localhost:5436/social_commerce}"
+npx prisma generate || echo "⚠️  Prisma generate failed"
+
+# Run migrations (DB in Docker: ensure postgres is up first, e.g. via ./scripts/dev.sh)
+echo "📊 Running database migrations..."
+npx prisma migrate deploy || echo "⚠️  Migrations failed - is postgres running? (./scripts/dev.sh starts it)"
 
 echo "✅ Starting NestJS server on port 3001..."
 echo "📡 API will be available at: http://localhost:3001"

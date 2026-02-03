@@ -1,5 +1,5 @@
 # Project name: keeps this stack isolated from others on the same host (e.g. tosha-city).
-# Host ports: 3003 shop, 3004 api, 3005 admin, 5434 postgres, 6380 redis, 9000/9001 minio.
+# Host ports: 3003 shop, 3004 api, 3005 admin, 5436 postgres, 6380 redis, 9000/9001 minio.
 name: hhourssop
 
 services:
@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: social_commerce
     ports:
-      - "5434:5432"
+      - "5436:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -127,7 +127,9 @@ services:
       dockerfile: ./apps/admin/Dockerfile
     container_name: social-commerce-admin
     environment:
+      CI: "true"
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3004}
+      NEXT_PUBLIC_SHOP_URL: ${NEXT_PUBLIC_SHOP_URL:-http://localhost:3003}
       NODE_ENV: ${NODE_ENV:-development}
     ports:
       - "3005:3000"
@@ -147,8 +149,10 @@ services:
       dockerfile: ./apps/shop/Dockerfile
     container_name: social-commerce-shop
     environment:
+      CI: "true"
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:3004}
       NEXT_PUBLIC_SHOP_DOMAIN: ${NEXT_PUBLIC_SHOP_DOMAIN:-localhost:3003}
+      NEXT_PUBLIC_STORE_TENANT_ID: ${NEXT_PUBLIC_STORE_TENANT_ID:-00000000-0000-0000-0000-000000000001}
       NODE_ENV: ${NODE_ENV:-development}
     ports:
       - "3003:3000"

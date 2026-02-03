@@ -29,15 +29,13 @@ export enum OrderStatus {
 export enum IntegrationProvider {
   FACEBOOK = 'facebook',
   INSTAGRAM = 'instagram',
-  TWITTER = 'twitter',
-  PINTEREST = 'pinterest',
+  TIKTOK = 'tiktok',
 }
 
 export enum DestinationType {
   FACEBOOK_PAGE = 'facebook_page',
   INSTAGRAM_BUSINESS = 'instagram_business',
-  TWITTER_ACCOUNT = 'twitter_account',
-  PINTEREST_BOARD = 'pinterest_board',
+  TIKTOK_ACCOUNT = 'tiktok_account',
 }
 
 export interface Tenant {

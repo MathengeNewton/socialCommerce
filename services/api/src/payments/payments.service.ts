@@ -84,7 +84,6 @@ export class PaymentsService {
             await tx.receipt.create({
               data: {
                 tenantId: order.tenantId,
-                clientId: order.clientId,
                 orderId: order.id,
                 receiptNumber,
                 totalPaid: finalAmount,

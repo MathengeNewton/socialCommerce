@@ -23,17 +23,19 @@ export class ProductsController {
   @Post()
   async create(@Request() req, @Body() body: any) {
     const validated = createProductSchema.parse(body);
-    return this.productsService.create(
-      req.user.tenantId,
-      req.body.clientId || req.query.clientId,
-      validated,
-      req.user?.id,
-    );
+    return this.productsService.create(req.user.tenantId, validated, req.user?.id);
   }
 
   @Get()
-  async findAll(@Request() req, @Query('clientId') clientId?: string) {
-    return this.productsService.findAll(req.user.tenantId, clientId);
+  async findAll(
+    @Request() req,
+    @Query('categoryId') categoryId?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const pageNum = Math.max(1, parseInt(page || '1', 10) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit || '10', 10) || 10));
+    return this.productsService.findAll(req.user.tenantId, categoryId, pageNum, limitNum);
   }
 
   @Get(':slug')

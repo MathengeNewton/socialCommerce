@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import AdminNav from '../components/AdminNav';
+import DataTable, { DataTableColumn } from '../components/DataTable';
+import { useConfirm } from '../components/ConfirmContext';
 
 type Supplier = {
   id: string;
@@ -25,6 +27,7 @@ export default function SuppliersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(defaultForm);
   const [saving, setSaving] = useState(false);
+  const { confirm } = useConfirm();
 
   const authHeaders = () => {
     const token = localStorage.getItem('accessToken');
@@ -135,7 +138,13 @@ export default function SuppliersPage() {
   };
 
   const deleteSupplier = async (id: string) => {
-    if (!confirm('Delete this supplier? Products linked to them may be affected.')) return;
+    const ok = await confirm({
+      message: 'Delete this supplier? Products linked to them may be affected.',
+      title: 'Delete supplier',
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     const headers = authHeaders();
     if (!headers) return;
     try {
@@ -163,97 +172,50 @@ export default function SuppliersPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30">
-      <nav className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/dashboard" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-              <svg className="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                hhourssop · Suppliers
-              </h1>
-            </Link>
-            <button
-              onClick={openAdd}
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all flex items-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              <span>Add Supplier</span>
-            </button>
-          </div>
-        </div>
-      </nav>
+      <AdminNav title="hhourssop · Suppliers" backHref="/dashboard" />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex justify-end mb-4">
+          <button
+            onClick={openAdd}
+            className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-2.5 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all flex items-center gap-2"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Add Supplier</span>
+          </button>
+        </div>
         {error && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
             {error}
           </div>
         )}
 
-        <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden">
-          {suppliers.length === 0 ? (
-            <div className="text-center py-16 px-4">
-              <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-3xl mb-6">
-                <svg className="w-12 h-12 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">No suppliers yet</h2>
-              <p className="text-gray-600 mb-6">Add a supplier to link products to.</p>
-              <button
-                onClick={openAdd}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transition-all inline-flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Add supplier
-              </button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Name</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Phone</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Address</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {suppliers.map((s) => (
-                    <tr key={s.id} className="hover:bg-gray-50/50">
-                      <td className="py-3 px-4 font-medium text-gray-900">{s.name}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{s.email ?? '—'}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600">{s.phone ?? '—'}</td>
-                      <td className="py-3 px-4 text-sm text-gray-600 max-w-xs truncate">{s.address ?? '—'}</td>
-                      <td className="py-3 px-4 text-right">
-                        <button
-                          onClick={() => openEdit(s)}
-                          className="text-blue-600 hover:underline text-sm font-medium mr-3"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => deleteSupplier(s.id)}
-                          className="text-red-600 hover:underline text-sm font-medium"
-                        >
-                          Delete
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <DataTable
+          columns={[
+            { key: 'name', label: 'Name', sortable: true, exportValue: (r) => r.name, render: (r) => <span className="font-medium">{r.name}</span> },
+            { key: 'email', label: 'Email', sortable: true, exportValue: (r) => r.email ?? '', render: (r) => r.email ?? '—' },
+            { key: 'phone', label: 'Phone', sortable: true, exportValue: (r) => r.phone ?? '', render: (r) => r.phone ?? '—' },
+            { key: 'address', label: 'Address', sortable: true, exportValue: (r) => r.address ?? '', render: (r) => <span className="max-w-xs truncate block">{r.address ?? '—'}</span> },
+            { key: 'actions', label: 'Actions', sortable: false, render: (r) => (
+              <span className="flex gap-2">
+                <button onClick={() => openEdit(r)} className="text-blue-600 hover:underline text-sm font-medium">Edit</button>
+                <button onClick={() => deleteSupplier(r.id)} className="text-red-600 hover:underline text-sm font-medium">Delete</button>
+              </span>
+            ) },
+          ]}
+          data={suppliers}
+          getRowId={(r) => r.id}
+          emptyMessage="No suppliers yet. Add a supplier to link products to."
+          title="Suppliers"
+          actions={
+            <button onClick={openAdd} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+              Add Supplier
+            </button>
+          }
+        />
       </main>
 
       {showForm && (

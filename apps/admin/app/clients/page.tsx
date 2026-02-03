@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import AdminNav from '../components/AdminNav';
+import DataTable, { DataTableColumn } from '../components/DataTable';
 
 type Client = {
   id: string;
@@ -97,40 +99,14 @@ export default function ClientsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50/30 to-indigo-50/30">
-      <nav className="bg-white/80 backdrop-blur-lg border-b border-gray-200/50 shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg">
-                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-                  hhourssop · Clients
-                </h1>
-                <p className="text-xs text-gray-500">Onboard brands you post for</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Link className="btn-secondary" href="/dashboard">
-                Back
-              </Link>
-              <Link className="btn-primary" href="/settings">
-                Integrations
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <AdminNav title="hhourssop · Clients" backHref="/dashboard" />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="card lg:col-span-1">
             <h2 className="text-lg font-bold text-gray-900 mb-2">Create client</h2>
             <p className="text-sm text-gray-600 mb-4">
-              Add a client (brand). Then connect their social accounts in Settings.
+              Add a client (brand). Then connect their social accounts in <Link href="/integrations" className="text-blue-600 hover:underline">Integrations</Link>.
             </p>
 
             {error && (
@@ -176,28 +152,23 @@ export default function ClientsPage() {
                 <div className="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600 mb-4"></div>
                 <p className="text-gray-600 font-medium">Loading clients…</p>
               </div>
-            ) : clients.length === 0 ? (
-              <div className="text-center py-14">
-                <p className="text-gray-600 font-medium">No clients yet.</p>
-                <p className="text-gray-500 text-sm mt-1">Create one to start onboarding accounts.</p>
-              </div>
             ) : (
-              <div className="space-y-3">
-                {clients.map((c) => (
-                  <div
-                    key={c.id}
-                    className="flex items-center justify-between p-4 rounded-2xl border border-gray-100 bg-white hover:shadow-md transition-shadow"
-                  >
-                    <div>
-                      <div className="font-semibold text-gray-900">{c.name}</div>
-                      <div className="text-xs text-gray-500 font-mono">{c.id}</div>
-                    </div>
-                    <Link className="btn-secondary" href={`/settings?clientId=${encodeURIComponent(c.id)}`}>
-                      Connect accounts
-                    </Link>
-                  </div>
-                ))}
-              </div>
+              <DataTable
+                columns={[
+                  { key: 'name', label: 'Name', sortable: true, exportValue: (r) => r.name, render: (r) => <span className="font-semibold">{r.name}</span> },
+                  { key: 'id', label: 'ID', sortable: true, exportValue: (r) => r.id, render: (r) => <span className="text-xs font-mono text-gray-500">{r.id}</span> },
+                  { key: 'actions', label: 'Actions', sortable: false, render: (r) => <Link className="text-blue-600 hover:underline text-sm font-medium" href={`/settings?clientId=${encodeURIComponent(r.id)}`}>Connect accounts</Link> },
+                ]}
+                data={clients}
+                getRowId={(r) => r.id}
+                emptyMessage="No clients yet. Create one to start onboarding accounts."
+                title="Clients"
+                actions={
+                  <button onClick={async () => { setLoading(true); try { await fetchClients(); } catch (e: unknown) { setError(e instanceof Error ? e.message : 'Failed'); } finally { setLoading(false); } }} className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50">
+                    Refresh
+                  </button>
+                }
+              />
             )}
           </div>
         </div>

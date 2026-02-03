@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { MediaService } from '../media/media.service';
 import { LinkGenerationService } from '../link-generation/link-generation.service';
 import { PublishingService } from '../publishing/publishing.service';
 import { AuditService } from '../audit/audit.service';
@@ -9,6 +10,7 @@ import { createPostSchema, updatePostSchema } from '@social-commerce/shared';
 export class PostsService {
   constructor(
     private prisma: PrismaService,
+    private mediaService: MediaService,
     private linkGenerationService: LinkGenerationService,
     private publishingService: PublishingService,
     private auditService: AuditService,
@@ -146,9 +148,10 @@ export class PostsService {
       where.clientId = clientId;
     }
 
-    return this.prisma.post.findMany({
+    const posts = await this.prisma.post.findMany({
       where,
       include: {
+        client: { select: { id: true, name: true } },
         captions: true,
         media: {
           include: {
@@ -162,7 +165,7 @@ export class PostsService {
         },
         destinations: {
           include: {
-            destination: true,
+            destination: { include: { integration: { select: { provider: true } } } },
           },
         },
       },
@@ -170,6 +173,8 @@ export class PostsService {
         createdAt: 'desc',
       },
     });
+
+    return this.resolveMediaUrls(posts);
   }
 
   async findOne(tenantId: string, id: string) {
@@ -179,6 +184,7 @@ export class PostsService {
         tenantId,
       },
       include: {
+        client: { select: { id: true, name: true } },
         captions: true,
         media: {
           include: {
@@ -194,7 +200,7 @@ export class PostsService {
           include: {
             destination: {
               include: {
-                integration: true,
+                integration: { select: { provider: true } },
               },
             },
           },
@@ -206,7 +212,19 @@ export class PostsService {
       throw new NotFoundException(`Post with id "${id}" not found`);
     }
 
-    return post;
+    const [resolved] = await this.resolveMediaUrls([post]);
+    return resolved;
+  }
+
+  private async resolveMediaUrls(posts: any[]): Promise<any[]> {
+    for (const post of posts) {
+      for (const pm of post.media || []) {
+        if (pm.media?.url) {
+          pm.media.url = await this.mediaService.resolveMediaUrl(pm.media.url);
+        }
+      }
+    }
+    return posts;
   }
 
   async update(tenantId: string, id: string, updateDto: any) {

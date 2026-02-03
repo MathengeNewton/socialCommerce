@@ -20,7 +20,7 @@ export class IntegrationsService {
     redirectUri?: string,
     userId?: string,
   ) {
-    // Validate provider-specific requirements before calling external APIs
+    // Validate provider-specific requirements
     if (provider === 'facebook') {
       if (!redirectUri) {
         throw new BadRequestException(
@@ -32,6 +32,25 @@ export class IntegrationsService {
       if (!appId || !appSecret) {
         throw new BadRequestException(
           'Facebook integration is not configured. Set FACEBOOK_APP_ID and FACEBOOK_APP_SECRET on the API.',
+        );
+      }
+    }
+    if (provider === 'instagram') {
+      // Instagram uses Facebook Login - same as Facebook
+      if (!redirectUri) throw new BadRequestException('Redirect URI is required for Instagram.');
+      const appId = this.configService.get<string>('FACEBOOK_APP_ID');
+      const appSecret = this.configService.get<string>('FACEBOOK_APP_SECRET');
+      if (!appId || !appSecret) {
+        throw new BadRequestException('Instagram requires FACEBOOK_APP_ID and FACEBOOK_APP_SECRET.');
+      }
+    }
+    if (provider === 'tiktok') {
+      // TikTok: https://developers.tiktok.com/doc/oauth-user-access-token-management
+      const clientKey = this.configService.get<string>('TIKTOK_CLIENT_KEY');
+      const clientSecret = this.configService.get<string>('TIKTOK_CLIENT_SECRET');
+      if (!clientKey || !clientSecret) {
+        throw new BadRequestException(
+          'TikTok integration is not configured. Set TIKTOK_CLIENT_KEY and TIKTOK_CLIENT_SECRET on the API.',
         );
       }
     }
@@ -193,7 +212,7 @@ export class IntegrationsService {
     code: string,
     redirectUri?: string,
   ): Promise<{ accessToken: string; refreshToken?: string; expiresIn?: number }> {
-    if (provider === 'facebook' && redirectUri) {
+    if ((provider === 'facebook' || provider === 'instagram') && redirectUri) {
       const params = new URLSearchParams({
         client_id: this.configService.get<string>('FACEBOOK_APP_ID')!,
         client_secret: this.configService.get<string>('FACEBOOK_APP_SECRET')!,
@@ -229,7 +248,7 @@ export class IntegrationsService {
     provider: string,
     accessToken: string,
   ): Promise<{ id: string; name: string; email?: string }> {
-    if (provider === 'facebook') {
+    if (provider === 'facebook' || provider === 'instagram') {
       const res = await fetch(
         `https://graph.facebook.com/v18.0/me?fields=id,name&access_token=${encodeURIComponent(accessToken)}`,
       );
@@ -241,11 +260,12 @@ export class IntegrationsService {
       const data = (await res.json()) as { id: string; name: string };
       return { id: data.id, name: data.name };
     }
-    return {
-      id: `user_${Date.now()}`,
-      name: 'Mock User',
-      email: 'mock@example.com',
-    };
+    if (provider === 'tiktok') {
+      // TikTok User Info: https://developers.tiktok.com/doc/login-kit-user-info
+      // Placeholder until OAuth flow is implemented
+      return { id: `tt_user_${Date.now()}`, name: 'TikTok User' };
+    }
+    return { id: `user_${Date.now()}`, name: 'User', email: 'user@example.com' };
   }
 
   private async fetchDestinations(
@@ -256,7 +276,7 @@ export class IntegrationsService {
   > {
     if (provider === 'facebook') {
       const res = await fetch(
-        `https://graph.facebook.com/v18.0/me/accounts?access_token=${encodeURIComponent(accessToken)}`,
+        `https://graph.facebook.com/v18.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${encodeURIComponent(accessToken)}`,
       );
       if (!res.ok) {
         const body = await res.text();
@@ -264,25 +284,43 @@ export class IntegrationsService {
         throw new Error(parsed || 'Facebook could not load Pages. Check app permissions (pages_show_list, pages_manage_posts).');
       }
       const data = (await res.json()) as {
-        data: { id: string; name: string; access_token: string }[];
+        data: Array<{
+          id: string;
+          name: string;
+          access_token: string;
+          instagram_business_account?: { id: string };
+        }>;
       };
-      return (data.data || []).map((page) => ({
-        id: page.id,
-        type: 'facebook_page',
-        name: page.name,
-        metadata: {
-          pageAccessTokenEncrypted: this.encryptToken(page.access_token),
-        },
-      }));
+      const destinations: { id: string; type: string; name: string; metadata: Record<string, unknown> }[] = [];
+      for (const page of data.data || []) {
+        destinations.push({
+          id: page.id,
+          type: 'facebook_page',
+          name: page.name,
+          metadata: { pageAccessTokenEncrypted: this.encryptToken(page.access_token) },
+        });
+        if (page.instagram_business_account?.id) {
+          destinations.push({
+            id: page.instagram_business_account.id,
+            type: 'instagram_business',
+            name: `${page.name} (Instagram)`,
+            metadata: { facebookPageId: page.id, pageAccessTokenEncrypted: this.encryptToken(page.access_token) },
+          });
+        }
+      }
+      return destinations;
     }
-    return [
-      {
-        id: `dest_${Date.now()}`,
-        type: provider === 'facebook' ? 'facebook_page' : 'twitter_account',
-        name: `Mock ${provider} Page`,
-        metadata: {},
-      },
-    ];
+    if (provider === 'instagram') {
+      // Instagram standalone: use Facebook Login with instagram_basic, instagram_content_publish
+      // Docs: https://developers.facebook.com/docs/instagram-platform/instagram-api-with-facebook-login
+      return [{ id: `ig_${Date.now()}`, type: 'instagram_business', name: 'Instagram Account', metadata: {} }];
+    }
+    if (provider === 'tiktok') {
+      // TikTok Content Posting API - requires OAuth with video.publish scope
+      // Docs: https://developers.tiktok.com/doc/content-posting-api-get-started
+      return [{ id: `tt_${Date.now()}`, type: 'tiktok_account', name: 'TikTok Account', metadata: {} }];
+    }
+    return [];
   }
 
   private getEncryptionKey(): Buffer {

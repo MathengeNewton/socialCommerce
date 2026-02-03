@@ -24,16 +24,12 @@ export class OrdersController {
   @Post()
   async create(@Request() req, @Body() body: any) {
     const validated = createOrderSchema.parse(body);
-    return this.ordersService.create(
-      req.user.tenantId,
-      req.body.clientId || req.query.clientId,
-      validated,
-    );
+    return this.ordersService.create(req.user.tenantId, validated);
   }
 
   @Get()
-  async findAll(@Request() req, @Query('clientId') clientId?: string) {
-    return this.ordersService.findAll(req.user.tenantId, clientId);
+  async findAll(@Request() req) {
+    return this.ordersService.findAll(req.user.tenantId);
   }
 
   @Get(':publicId')
@@ -51,6 +47,20 @@ export class OrdersController {
       req.user.tenantId,
       id,
       body.status,
+      req.user?.id,
+    );
+  }
+
+  @Put(':id/fulfillment')
+  async updateFulfillment(
+    @Request() req,
+    @Param('id') id: string,
+    @Body() body: { isGenuine?: boolean; fulfillmentNotes?: string; status?: string; finalTotal?: number },
+  ) {
+    return this.ordersService.updateFulfillment(
+      req.user.tenantId,
+      id,
+      body,
       req.user?.id,
     );
   }

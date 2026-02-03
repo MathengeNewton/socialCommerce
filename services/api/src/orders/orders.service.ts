@@ -15,7 +15,7 @@ export class OrdersService {
     private auditService: AuditService,
   ) {}
 
-  async create(tenantId: string, clientId: string, createDto: any) {
+  async create(tenantId: string, createDto: any) {
     const validated = createOrderSchema.parse(createDto);
 
     // Validate cart items and check stock
@@ -36,16 +36,17 @@ export class OrdersService {
     const order = await this.prisma.order.create({
       data: {
         tenantId,
-        clientId,
         publicId,
         customerName: validated.customerName,
         customerEmail: validated.customerEmail,
         customerPhone: validated.customerPhone || null,
         customerAddress: validated.customerAddress || null,
+        deliveryType: validated.deliveryType ?? 'pickup',
+        customerPreference: validated.customerPreference || null,
         status: 'pending',
         total,
-        quotedTotal: total, // Set quoted total equal to calculated total
-        currency: 'USD',
+        quotedTotal: total,
+        currency: 'KES',
         items: {
           create: validatedItems.map((item) => ({
             productId: item.productId,
@@ -75,11 +76,8 @@ export class OrdersService {
     return order;
   }
 
-  async findAll(tenantId: string, clientId?: string) {
-    const where: any = { tenantId };
-    if (clientId) {
-      where.clientId = clientId;
-    }
+  async findAll(tenantId: string) {
+    const where = { tenantId };
 
     return this.prisma.order.findMany({
       where,
@@ -180,6 +178,48 @@ export class OrdersService {
     return updated;
   }
 
+  async updateFulfillment(
+    tenantId: string,
+    orderIdOrPublicId: string,
+    data: {
+      isGenuine?: boolean;
+      fulfillmentNotes?: string;
+      status?: string;
+      finalTotal?: number;
+    },
+    userId?: string,
+  ) {
+    const isPublicId = orderIdOrPublicId.startsWith('ORD-');
+    const where = isPublicId
+      ? { publicId: orderIdOrPublicId, tenantId }
+      : { id: orderIdOrPublicId, tenantId };
+    const existing = await this.prisma.order.findFirst({ where });
+    if (!existing) {
+      throw new NotFoundException(`Order not found`);
+    }
+
+    const updateData: any = {};
+    if (data.isGenuine !== undefined) updateData.isGenuine = data.isGenuine;
+    if (data.fulfillmentNotes !== undefined) updateData.fulfillmentNotes = data.fulfillmentNotes;
+    if (data.status !== undefined) updateData.status = data.status;
+    if (data.finalTotal !== undefined) {
+      updateData.finalTotal = data.finalTotal;
+      if (userId) {
+        updateData.priceOverrideByUserId = userId;
+        updateData.priceOverrideReason = 'Selling price set by attendant';
+      }
+    }
+
+    return this.prisma.order.update({
+      where: { id: existing.id },
+      data: updateData,
+      include: {
+        items: { include: { product: true, variant: true } },
+        priceOverrideByUser: { select: { id: true, name: true, email: true } },
+      },
+    });
+  }
+
   async overridePrice(
     tenantId: string,
     orderId: string,
@@ -198,8 +238,8 @@ export class OrdersService {
       throw new NotFoundException(`Order with id "${orderId}" not found`);
     }
 
-    if (existing.status !== 'pending') {
-      throw new BadRequestException('Can only override price for pending orders');
+    if (existing.status !== 'pending' && existing.status !== 'contacted' && existing.status !== 'quoted') {
+      throw new BadRequestException('Can only override price for pending/contacted/quoted orders');
     }
 
     return this.prisma.order.update({

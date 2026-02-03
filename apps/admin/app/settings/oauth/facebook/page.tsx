@@ -1,13 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 
-export default function FacebookOAuthCallbackPage() {
+function FacebookOAuthContent() {
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
+  const [provider, setProvider] = useState<'facebook' | 'instagram'>('facebook');
 
   useEffect(() => {
     const code = searchParams.get('code');
@@ -22,9 +23,13 @@ export default function FacebookOAuthCallbackPage() {
 
     if (!code || !state) {
       setStatus('error');
-      setMessage('Missing code or state. Try connecting again from Settings.');
+      setMessage('Missing code or state. Try connecting again from Integrations.');
       return;
     }
+
+    const isInstagram = state.startsWith('instagram:');
+    const clientId = isInstagram ? state.slice(10) : state;
+    setProvider(isInstagram ? 'instagram' : 'facebook');
 
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3004';
     const redirectUri =
@@ -40,14 +45,14 @@ export default function FacebookOAuthCallbackPage() {
           setMessage('Not logged in. Please log in and try again.');
           return;
         }
-        const res = await fetch(`${apiUrl}/integrations/facebook/connect`, {
+        const res = await fetch(`${apiUrl}/integrations/${provider}/connect`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            clientId: state,
+            clientId,
             code,
             redirectUri,
           }),
@@ -78,7 +83,7 @@ export default function FacebookOAuthCallbackPage() {
         {status === 'loading' && (
           <>
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4" />
-            <p className="text-gray-600 font-medium">Connecting Facebook...</p>
+            <p className="text-gray-600 font-medium">Connecting {provider === 'instagram' ? 'Instagram' : 'Facebook'}...</p>
           </>
         )}
         {status === 'success' && (
@@ -98,13 +103,13 @@ export default function FacebookOAuthCallbackPage() {
                 />
               </svg>
             </div>
-            <h1 className="text-xl font-bold text-gray-900 mb-2">Facebook connected</h1>
-            <p className="text-gray-600 mb-6">You can now publish to your Facebook Page(s).</p>
+            <h1 className="text-xl font-bold text-gray-900 mb-2">{provider === 'instagram' ? 'Instagram' : 'Facebook'} connected</h1>
+            <p className="text-gray-600 mb-6">You can now publish to your {provider === 'instagram' ? 'Instagram' : 'Facebook Page(s)'}.</p>
             <Link
-              href="/settings"
+              href="/integrations"
               className="inline-block bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all"
             >
-              Back to Settings
+              Back to Integrations
             </Link>
           </>
         )}
@@ -128,14 +133,22 @@ export default function FacebookOAuthCallbackPage() {
             <h1 className="text-xl font-bold text-gray-900 mb-2">Connection failed</h1>
             <p className="text-gray-600 mb-6">{message}</p>
             <Link
-              href="/settings"
+              href="/integrations"
               className="inline-block bg-gray-800 text-white px-6 py-3 rounded-xl font-semibold hover:bg-gray-900 transition-all"
             >
-              Back to Settings
+              Back to Integrations
             </Link>
           </>
         )}
       </div>
     </div>
+  );
+}
+
+export default function FacebookOAuthCallbackPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-2 border-blue-600 border-t-transparent" /></div>}>
+      <FacebookOAuthContent />
+    </Suspense>
   );
 }

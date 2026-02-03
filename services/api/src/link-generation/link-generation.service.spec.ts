@@ -41,7 +41,7 @@ describe('LinkGenerationService', () => {
     });
 
     it('should handle different platforms', () => {
-      const platforms = ['facebook', 'instagram', 'twitter', 'pinterest'];
+      const platforms = ['facebook', 'instagram', 'tiktok'];
 
       platforms.forEach((platform) => {
         const link = service.generateProductLink('product', platform);
@@ -69,10 +69,10 @@ describe('LinkGenerationService', () => {
       expect(result).toContain(link);
     });
 
-    it('should append link to caption for Twitter', () => {
+    it('should append link to caption for TikTok', () => {
       const caption = 'Check this out!';
-      const link = 'https://shop.domain/p/test?utm_source=twitter';
-      const result = service.appendLinkToCaption(caption, link, 'twitter');
+      const link = 'https://shop.domain/p/test?utm_source=tiktok';
+      const result = service.appendLinkToCaption(caption, link, 'tiktok');
 
       expect(result).toContain(caption);
       expect(result).toContain(link);

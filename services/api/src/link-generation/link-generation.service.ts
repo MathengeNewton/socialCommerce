@@ -32,11 +32,8 @@ export class LinkGenerationService {
     switch (platform.toLowerCase()) {
       case 'facebook':
       case 'instagram':
+      case 'tiktok':
         return `${caption}\n\n🔗 ${link}`;
-      case 'twitter':
-        return `${caption}\n\n${link}`;
-      case 'pinterest':
-        return `${caption}\n\n${link}`;
       default:
         return `${caption}\n\n${link}`;
     }

@@ -1,5 +1,10 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import ThemeProvider from './components/ThemeProvider';
+import ThemeScript from './components/ThemeScript';
+import CartProviderWrapper from './components/CartProviderWrapper';
+import ShopFooter from './components/ShopFooter';
+import { ToastProvider } from './context/ToastContext';
 
 export const metadata: Metadata = {
   title: 'hhourssop Shop',
@@ -13,8 +18,18 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className="bg-white min-h-screen">{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className="min-h-screen bg-[var(--background)] text-[var(--foreground)] flex flex-col">
+        <ThemeScript />
+        <ThemeProvider>
+          <CartProviderWrapper>
+            <ToastProvider>
+              <div className="flex-1 flex flex-col">{children}</div>
+              <ShopFooter />
+            </ToastProvider>
+          </CartProviderWrapper>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }
