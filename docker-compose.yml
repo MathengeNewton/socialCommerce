@@ -1,5 +1,5 @@
 # Project name: keeps this stack isolated from others on the same host (e.g. tosha-city).
-# Host ports: 3003 shop, 3004 api, 3005 admin, 5436 postgres, 6380 redis, 9000/9001 minio.
+# Host ports: 3003 shop, 3004 api, 3005 admin, 5488 postgres, 6380 redis, 9000/9001 minio.
 name: hhourssop
 
 services:
@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-social_commerce}
     ports:
-      - "5436:5432"
+      - "5488:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

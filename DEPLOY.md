@@ -13,11 +13,11 @@ Create these **DNS A (or CNAME) records** pointing to your server IP:
 Optional (internal / dev only, usually not public):
 
 - Minio (S3): `localhost:9000` (console `:9001`) – only expose if you need web UI; otherwise keep internal.
-- Postgres: `localhost:5436` – never expose publicly.
+- Postgres: `localhost:5488` – never expose publicly.
 
 ### Same server as other Docker stacks (e.g. tosha-city)
 
-This stack uses **project name `hhourssop`**, so its containers, networks, and volumes are separate from other compose projects. It binds only these host ports: **3003, 3004, 3005, 5436, 6380, 9000, 9001**. As long as no other app uses those ports, you can run both hhourssop and tosha-city (or others) on the same server without clashes.
+This stack uses **project name `hhourssop`**, so its containers, networks, and volumes are separate from other compose projects. It binds only these host ports: **3003, 3004, 3005, 5488, 6380, 9000, 9001**. As long as no other app uses those ports, you can run both hhourssop and tosha-city (or others) on the same server without clashes.
 
 ---
 
