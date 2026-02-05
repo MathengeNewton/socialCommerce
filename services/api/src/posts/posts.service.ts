@@ -280,7 +280,7 @@ export class PostsService {
   async publish(tenantId: string, postId: string, userId?: string) {
     const post = await this.findOne(tenantId, postId);
 
-    if (post.status !== 'draft' && post.status !== 'scheduled' && post.status !== 'failed') {
+    if (post.status !== 'draft' && post.status !== 'scheduled' && post.status !== 'failed' && post.status !== 'publishing') {
       throw new BadRequestException(`Cannot publish post with status "${post.status}"`);
     }
 

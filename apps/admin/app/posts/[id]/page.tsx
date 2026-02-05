@@ -171,7 +171,7 @@ export default function PostDetailPage() {
                 <span className="text-xs">{statusStyle.icon}</span>
                 {post.status}
               </span>
-              {post.status === 'failed' && (
+              {(post.status === 'failed' || (post.status === 'publishing' && post.destinations?.some((d) => d.status === 'failed'))) && (
                 <button
                   type="button"
                   onClick={handleRepublish}

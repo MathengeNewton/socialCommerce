@@ -52,11 +52,11 @@ export class PublishingService {
       throw new NotFoundException(`Post with id "${postId}" not found`);
     }
 
-    if (post.status !== 'draft' && post.status !== 'scheduled' && post.status !== 'failed') {
+    if (post.status !== 'draft' && post.status !== 'scheduled' && post.status !== 'failed' && post.status !== 'publishing') {
       throw new BadRequestException(`Cannot publish post with status "${post.status}"`);
     }
 
-    const isRepublish = post.status === 'failed';
+    const isRepublish = post.status === 'failed' || post.status === 'publishing';
     const destinationsToPublish = isRepublish
       ? post.destinations.filter((d) => d.status === 'failed')
       : post.destinations;
