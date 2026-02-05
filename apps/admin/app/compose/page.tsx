@@ -358,36 +358,52 @@ export default function ComposePage() {
                   {mediaError}
                 </div>
               )}
-              <p className="text-sm text-gray-600 mb-4">Click &quot;Add Media&quot; to upload an image or video from your device (PNG, JPEG, MP4, max 50MB).</p>
+              <p className="text-sm text-gray-600 mb-4">Click &quot;Add Media&quot; to upload images or videos (PNG, JPEG, MP4, max 50MB). You can select multiple files at once.</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
                 <input
                   type="file"
                   id="media-upload"
                   accept="image/png,image/jpeg,image/jpg,video/mp4"
+                  multiple
                   className="hidden"
                   onChange={async (e) => {
-                    const file = e.target.files?.[0];
+                    const files = Array.from(e.target.files || []);
                     e.target.value = '';
-                    if (!file || selectedMediaItems.length >= 4) return;
+                    if (files.length === 0 || selectedMediaItems.length >= 4) return;
+                    const remaining = Math.min(files.length, 4 - selectedMediaItems.length);
+                    const toUpload = files.slice(0, remaining);
                     setMediaError('');
                     setMediaUploading(true);
+                    const token = localStorage.getItem('accessToken');
+                    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3004';
                     try {
-                      const token = localStorage.getItem('accessToken');
-                      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3004';
-                      const formData = new FormData();
-                      formData.append('file', file);
-                      if (selectedClientId) formData.append('clientId', selectedClientId);
-                      const res = await fetch(`${apiUrl}/media/upload`, {
-                        method: 'POST',
-                        headers: { Authorization: `Bearer ${token}` },
-                        body: formData,
-                      });
-                      if (!res.ok) {
-                        const err = await res.json().catch(() => ({}));
-                        throw new Error(err.message || 'Upload failed');
+                      for (const file of toUpload) {
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 120_000);
+                        try {
+                          const formData = new FormData();
+                          formData.append('file', file);
+                          if (selectedClientId) formData.append('clientId', selectedClientId);
+                          const res = await fetch(`${apiUrl}/media/upload`, {
+                            method: 'POST',
+                            headers: { Authorization: `Bearer ${token}` },
+                            body: formData,
+                            signal: controller.signal,
+                          });
+                          clearTimeout(timeoutId);
+                          if (!res.ok) {
+                            const err = await res.json().catch(() => ({}));
+                            throw new Error(err.message || `Upload failed: ${file.name}`);
+                          }
+                          const data = await res.json();
+                          setSelectedMediaItems((prev) => [...prev, { id: data.mediaId, url: data.url }]);
+                        } catch (fileErr: unknown) {
+                          if (fileErr instanceof Error && fileErr.name === 'AbortError') {
+                            throw new Error('Upload timed out. Try smaller files or check your connection.');
+                          }
+                          throw fileErr;
+                        }
                       }
-                      const data = await res.json();
-                      setSelectedMediaItems((prev) => [...prev, { id: data.mediaId, url: data.url }]);
                     } catch (err: unknown) {
                       setMediaError(err instanceof Error ? err.message : 'Upload failed');
                     } finally {
@@ -431,7 +447,7 @@ export default function ComposePage() {
                           htmlFor="media-upload"
                           className={`w-full h-full flex flex-col items-center justify-center cursor-pointer border-2 border-dashed border-gray-300 rounded-xl hover:border-blue-400 hover:bg-blue-50/50 transition-colors ${mediaUploading ? 'pointer-events-none opacity-70' : ''}`}
                         >
-                          {mediaUploading ? (
+                          {mediaUploading && i === selectedMediaItems.length ? (
                             <>
                               <div className="w-10 h-10 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-2" />
                               <p className="text-xs text-gray-600">Uploading…</p>
