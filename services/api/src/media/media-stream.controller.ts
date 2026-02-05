@@ -1,7 +1,5 @@
 import { Controller, Get, Param, Query, Res, NotFoundException } from '@nestjs/common';
-import { Response } from 'express';
 import { MediaService } from './media.service';
-import * as crypto from 'crypto';
 
 /**
  * Public media stream for TikTok PULL_FROM_URL.
@@ -18,7 +16,7 @@ export class MediaStreamController {
     @Param('id') id: string,
     @Query('token') token: string,
     @Query('expires') expires: string,
-    @Res() res: Response,
+    @Res() res: { status: (n: number) => { send: (s: string) => void }; setHeader: (k: string, v: string) => void; send: (b: Buffer) => void },
   ) {
     if (!token || !expires) {
       res.status(400).send('Missing token or expires');

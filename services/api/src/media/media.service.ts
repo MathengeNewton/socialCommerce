@@ -1,6 +1,5 @@
 import { Inject, Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Response } from 'express';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { S3Service } from '../s3/s3.service';
@@ -154,7 +153,7 @@ export class MediaService {
     return hmac.digest('hex');
   }
 
-  async streamMedia(mediaId: string, res: Response): Promise<void> {
+  async streamMedia(mediaId: string, res: { setHeader: (k: string, v: string) => void; send: (b: Buffer) => void }): Promise<void> {
     const media = await this.prisma.media.findUnique({ where: { id: mediaId } });
     if (!media) {
       throw new NotFoundException('Media not found');
