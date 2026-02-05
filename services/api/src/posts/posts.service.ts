@@ -280,11 +280,11 @@ export class PostsService {
   async publish(tenantId: string, postId: string, userId?: string) {
     const post = await this.findOne(tenantId, postId);
 
-    if (post.status !== 'draft' && post.status !== 'scheduled') {
+    if (post.status !== 'draft' && post.status !== 'scheduled' && post.status !== 'failed') {
       throw new BadRequestException(`Cannot publish post with status "${post.status}"`);
     }
 
-    // Use publishing service to queue jobs
+    // Use publishing service to queue jobs (handles republish for failed posts)
     await this.publishingService.publishPost(tenantId, postId, userId);
 
     // Return updated post

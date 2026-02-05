@@ -44,6 +44,7 @@ export default function PostDetailPage() {
   const [post, setPost] = useState<Post | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [republishing, setRepublishing] = useState(false);
 
   const authHeaders = () => {
     const token = localStorage.getItem('accessToken');
@@ -106,6 +107,30 @@ export default function PostDetailPage() {
     );
   }
 
+  const handleRepublish = async () => {
+    const headers = authHeaders();
+    if (!headers) return;
+    setRepublishing(true);
+    setError('');
+    try {
+      const res = await fetch(`${apiUrl}/posts/${id}/publish`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.message || 'Republish failed');
+      }
+      const updated = await res.json();
+      setPost(updated);
+      setError('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Republish failed');
+    } finally {
+      setRepublishing(false);
+    }
+  };
+
   const statusConfig = {
     published: { bg: 'bg-emerald-100', text: 'text-emerald-800', icon: '✓' },
     failed: { bg: 'bg-red-100', text: 'text-red-800', icon: '!' },
@@ -120,6 +145,15 @@ export default function PostDetailPage() {
       <AdminNav title="hhourssop · Post" backHref="/posts" />
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-sm flex items-center justify-between">
+            <span>{error}</span>
+            <button type="button" onClick={() => setError('')} className="text-red-500 hover:text-red-700 font-medium" aria-label="Dismiss">
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Header card */}
         <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 p-6 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
@@ -132,10 +166,34 @@ export default function PostDetailPage() {
                 <span>{new Date(post.createdAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>
               </div>
             </div>
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${statusStyle.bg} ${statusStyle.text}`}>
-              <span className="text-xs">{statusStyle.icon}</span>
-              {post.status}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium ${statusStyle.bg} ${statusStyle.text}`}>
+                <span className="text-xs">{statusStyle.icon}</span>
+                {post.status}
+              </span>
+              {post.status === 'failed' && (
+                <button
+                  type="button"
+                  onClick={handleRepublish}
+                  disabled={republishing}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {republishing ? (
+                    <>
+                      <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Republishing…
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      Republish
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

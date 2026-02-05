@@ -52,8 +52,17 @@ export class PublishingService {
       throw new NotFoundException(`Post with id "${postId}" not found`);
     }
 
-    if (post.status !== 'draft' && post.status !== 'scheduled') {
+    if (post.status !== 'draft' && post.status !== 'scheduled' && post.status !== 'failed') {
       throw new BadRequestException(`Cannot publish post with status "${post.status}"`);
+    }
+
+    const isRepublish = post.status === 'failed';
+    const destinationsToPublish = isRepublish
+      ? post.destinations.filter((d) => d.status === 'failed')
+      : post.destinations;
+
+    if (isRepublish && destinationsToPublish.length === 0) {
+      throw new BadRequestException('No failed destinations to republish');
     }
 
     // Update post status
@@ -61,6 +70,17 @@ export class PublishingService {
       where: { id: postId },
       data: { status: 'publishing' },
     });
+
+    // For republish: reset failed destinations to publishing so worker can retry
+    if (isRepublish) {
+      await this.prisma.postDestination.updateMany({
+        where: {
+          postId,
+          destinationId: { in: destinationsToPublish.map((d) => d.destinationId) },
+        },
+        data: { status: 'publishing', error: null },
+      });
+    }
 
     // Get primary product slug for link generation
     const primaryProduct = post.products.find((pp) => pp.isPrimary)?.product;
@@ -73,7 +93,7 @@ export class PublishingService {
       twitter_account: 'twitter',
     };
 
-    for (const postDest of post.destinations) {
+    for (const postDest of destinationsToPublish) {
       const platform =
         destTypeToPlatform[postDest.destination.type] ||
         postDest.destination.integration.provider;
@@ -137,8 +157,10 @@ export class PublishingService {
         jobPayload.pageId = postDest.destination.externalId;
       }
 
-      // Create job with idempotency key
-      const jobId = `${postId}-${postDest.destinationId}`;
+      // Create job with idempotency key (unique for republish to avoid deduplication)
+      const jobId = isRepublish
+        ? `${postId}-${postDest.destinationId}-retry-${Date.now()}`
+        : `${postId}-${postDest.destinationId}`;
 
       await this.publishingQueue.add(
         'publish',
