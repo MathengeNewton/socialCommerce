@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import AdminNav from '../../components/AdminNav';
@@ -19,6 +19,7 @@ type Post = {
     externalPostId: string | null;
     postUrl: string | null;
     publishedAt: string | null;
+    updatedAt?: string;
     error: string | null;
     destination: {
       id: string;
@@ -45,6 +46,7 @@ export default function PostDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [republishing, setRepublishing] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const authHeaders = () => {
     const token = localStorage.getItem('accessToken');
@@ -52,30 +54,38 @@ export default function PostDetailPage() {
     return { Authorization: `Bearer ${token}` };
   };
 
-  useEffect(() => {
+  const fetchPost = useCallback(async (showRefreshing = false) => {
     if (!id) return;
     const headers = authHeaders();
     if (!headers) {
       router.push('/login');
       return;
     }
-    fetch(`${apiUrl}/posts/${id}`, { headers })
-      .then((res) => {
-        if (!res.ok) {
-          if (res.status === 401) {
-            localStorage.removeItem('accessToken');
-            localStorage.removeItem('refreshToken');
-            router.push('/login');
-            return;
-          }
-          throw new Error('Post not found');
+    if (showRefreshing) setRefreshing(true);
+    try {
+      const res = await fetch(`${apiUrl}/posts/${id}`, { headers });
+      if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem('accessToken');
+          localStorage.removeItem('refreshToken');
+          router.push('/login');
+          return;
         }
-        return res.json();
-      })
-      .then(setPost)
-      .catch(() => setError('Failed to load post'))
-      .finally(() => setLoading(false));
+        throw new Error('Post not found');
+      }
+      const data = await res.json();
+      setPost(data);
+    } catch {
+      setError('Failed to load post');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [id, apiUrl, router]);
+
+  useEffect(() => {
+    fetchPost();
+  }, [fetchPost]);
 
   if (loading) {
     return (
@@ -171,6 +181,22 @@ export default function PostDetailPage() {
                 <span className="text-xs">{statusStyle.icon}</span>
                 {post.status}
               </span>
+              <button
+                type="button"
+                onClick={() => fetchPost(true)}
+                disabled={refreshing}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium bg-slate-100 text-slate-700 hover:bg-slate-200 disabled:opacity-50 transition-colors"
+                title="Refresh status"
+              >
+                {refreshing ? (
+                  <span className="w-4 h-4 border-2 border-slate-400 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                )}
+                Refresh
+              </button>
               {(post.status === 'failed' || (post.status === 'publishing' && post.destinations?.some((d) => d.status === 'failed'))) && (
                 <button
                   type="button"
@@ -328,11 +354,76 @@ export default function PostDetailPage() {
                         </>
                       )}
                       {d.error && (
-                        <p className="mt-2 text-xs text-red-600">{d.error}</p>
+                        <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                          <p className="text-xs font-semibold text-red-800 mb-1">Error log</p>
+                          <pre className="text-xs text-red-700 whitespace-pre-wrap break-words font-mono overflow-x-auto">{d.error}</pre>
+                          <button
+                            type="button"
+                            onClick={() => navigator.clipboard.writeText(d.error || '')}
+                            className="mt-2 text-xs text-red-600 hover:text-red-800 font-medium"
+                          >
+                            Copy error
+                          </button>
+                        </div>
+                      )}
+                      {(d.publishedAt || d.updatedAt) && (
+                        <p className="mt-2 text-xs text-slate-500">
+                          {d.publishedAt
+                            ? `Published ${new Date(d.publishedAt).toLocaleString()}`
+                            : `Last updated ${new Date(d.updatedAt || d.publishedAt || '').toLocaleString()}`}
+                        </p>
                       )}
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          </div>
+
+          {/* Publishing Log - timeline of each destination */}
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100">
+                <h2 className="font-semibold text-slate-900 flex items-center gap-2">
+                  <span className="w-1.5 h-4 rounded-full bg-amber-500" />
+                  Publishing log
+                </h2>
+                <p className="text-xs text-slate-500 mt-1">Status and errors for each platform. Use Refresh to see latest.</p>
+              </div>
+              <div className="p-5">
+                <div className="space-y-3">
+                  {post.destinations.map((d) => (
+                    <div
+                      key={d.destination.id}
+                      className={`flex items-start gap-3 p-3 rounded-lg border ${
+                        d.status === 'failed' ? 'bg-red-50/50 border-red-200' : d.status === 'published' ? 'bg-emerald-50/50 border-emerald-200' : 'bg-slate-50/50 border-slate-200'
+                      }`}
+                    >
+                      <span
+                        className={`shrink-0 text-xs font-semibold px-2 py-1 rounded ${
+                          d.status === 'failed' ? 'bg-red-200 text-red-800' : d.status === 'published' ? 'bg-emerald-200 text-emerald-800' : 'bg-slate-200 text-slate-700'
+                        }`}
+                      >
+                        {d.status}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-slate-900 text-sm">
+                          {PLATFORM_LABELS[d.destination.type] || d.destination.type} · {d.destination.name}
+                        </p>
+                        {d.error && (
+                          <pre className="mt-1 text-xs text-red-700 whitespace-pre-wrap break-words font-mono">{d.error}</pre>
+                        )}
+                        {(d.publishedAt || d.updatedAt) && (
+                          <p className="mt-1 text-xs text-slate-500">
+                            {d.status === 'published' && d.publishedAt
+                              ? `Published ${new Date(d.publishedAt).toLocaleString()}`
+                              : `Updated ${new Date(d.updatedAt || d.publishedAt || '').toLocaleString()}`}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>
