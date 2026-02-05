@@ -42,10 +42,9 @@ TikTok requires your video URL domain to be verified before using `PULL_FROM_URL
    `https://your-domain.com/tiktok{random}.txt`
 5. Click **Verify** in the TikTok portal
 
-**Where your videos are hosted:**
-- **Cloudinary**: Verify `res.cloudinary.com` or your custom Cloudinary domain
-- **S3 / Spaces**: Verify the domain that serves your media (e.g. `https://your-bucket.nyc3.digitaloceanspaces.com`)
-- **API proxy**: If you proxy media through `api.hhourssop.co.ke`, verify that domain
+**This app proxies TikTok videos through your API domain** – set `API_PUBLIC_URL=https://api.hhourssop.co.ke` in `.env`, then verify that domain in TikTok's portal.
+
+**Serving the verification file:** Set `TIKTOK_VERIFICATION_FILENAME` and `TIKTOK_VERIFICATION_CONTENT` in `.env` (the exact filename and content TikTok gives you). The API will serve it at `https://api.hhourssop.co.ke/{filename}`.
 
 ## 4. Environment Variables
 
@@ -55,6 +54,9 @@ Set these in your `.env` (and in Docker/deploy config):
 |----------|-------|-------------|
 | `TIKTOK_CLIENT_KEY` | API | From TikTok Developer Portal |
 | `TIKTOK_CLIENT_SECRET` | API | From TikTok Developer Portal |
+| `API_PUBLIC_URL` | API | Public URL of your API (e.g. `https://api.hhourssop.co.ke`) – required for TikTok video proxy |
+| `TIKTOK_VERIFICATION_FILENAME` | API | Optional: exact filename TikTok gives (e.g. `tiktok123abc.txt`) for domain verification |
+| `TIKTOK_VERIFICATION_CONTENT` | API | Optional: content of that file – API will serve it at `/{filename}` |
 | `NEXT_PUBLIC_TIKTOK_CLIENT_KEY` | Admin (frontend) | Same as Client Key – used to build OAuth URL |
 
 ## 5. Checklist

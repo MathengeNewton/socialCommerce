@@ -40,6 +40,18 @@ async function bootstrap() {
     allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+  // TikTok domain verification: serve the file at /{TIKTOK_VERIFICATION_FILENAME}
+  const tiktokFile = process.env.TIKTOK_VERIFICATION_FILENAME;
+  const tiktokContent = process.env.TIKTOK_VERIFICATION_CONTENT;
+  if (tiktokFile && tiktokContent) {
+    const httpAdapter = app.getHttpAdapter();
+    const instance = httpAdapter.getInstance();
+    instance.get(`/${tiktokFile}`, (_req: any, res: any) => {
+      res.type('text/plain');
+      res.send(tiktokContent);
+    });
+  }
+
   const port = process.env.PORT || 3001;
   await app.listen(port);
   console.log(`API server running on port ${port}`);

@@ -133,6 +133,12 @@ export class PublishingService {
           : post.media.map((pm) => pm.media);
       if (mediaList.length === 0) {
         mediaItems = [];
+      } else if (platform === 'tiktok') {
+        // TikTok PULL_FROM_URL requires verified domain - use our API proxy URL
+        mediaItems = mediaList.map((m) => ({
+          url: this.mediaService.getTikTokProxyUrl(m.id),
+          mimeType: m.mimeType,
+        }));
       } else {
         mediaItems = await Promise.all(
           mediaList.map(async (m) => ({

@@ -60,6 +60,6 @@ import { ScheduleModule } from '@nestjs/schedule';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TenantMiddleware).exclude('health', 'store', 'payments/webhook').forRoutes('*');
+    consumer.apply(TenantMiddleware).exclude('health', 'store', 'payments/webhook', 'media/public').forRoutes('*');
   }
 }
