@@ -267,8 +267,8 @@ export class PublishingProcessor extends WorkerHost {
       body: JSON.stringify({}),
     });
     if (!creatorRes.ok) {
-      const err = await creatorRes.json().catch(() => ({})) as { error?: { message?: string } };
-      throw new Error(err.error?.message || 'TikTok creator info failed. Token may be invalid or expired.');
+      const err = await creatorRes.json().catch(() => ({})) as Record<string, unknown>;
+      throw new Error(this.formatTikTokError(err, 'creator_info'));
     }
     const creatorData = (await creatorRes.json()) as {
       data?: { privacy_level_options?: string[] };
@@ -302,15 +302,8 @@ export class PublishingProcessor extends WorkerHost {
       body: JSON.stringify(initBody),
     });
     if (!initRes.ok) {
-      const err = await initRes.json().catch(() => ({})) as {
-        error?: { message?: string; code?: string };
-        error_description?: string;
-      };
-      const msg =
-        err.error?.message ||
-        err.error_description ||
-        (typeof err === 'object' && 'message' in err ? String((err as any).message) : 'TikTok video init failed');
-      throw new Error(msg);
+      const err = await initRes.json().catch(() => ({})) as Record<string, unknown>;
+      throw new Error(this.formatTikTokError(err, 'video/init'));
     }
     const initData = (await initRes.json()) as {
       data?: { publish_id?: string };
@@ -325,6 +318,23 @@ export class PublishingProcessor extends WorkerHost {
     const postUrl = null; // Could poll status to get video ID and build https://www.tiktok.com/video/{id}
 
     return { publishId, postUrl };
+  }
+
+  private formatTikTokError(err: Record<string, unknown>, context: string): string {
+    const error = (err.error as Record<string, unknown>) || err;
+    const code = (error?.code as string) || (err.code as string) || '';
+    const message = (error?.message as string) || (err.message as string) || (err.error_description as string) || '';
+    const logId = (error?.log_id as string) || (err.log_id as string) || '';
+
+    const parts: string[] = [];
+    if (code) parts.push(`[${code}]`);
+    if (message) parts.push(message);
+    if (logId) parts.push(`(log_id: ${logId})`);
+    if (parts.length === 0) {
+      parts.push(`TikTok ${context} failed. Raw: ${JSON.stringify(err)}`);
+    }
+
+    return parts.join(' ').trim();
   }
 
   private getFirstVideoUrl(mediaUrls: string[], mediaMimeTypes: string[]): string | null {
