@@ -79,13 +79,13 @@ export default function ComposePage() {
           setSelectedDestinations(destData.map((d: { id: string }) => d.id));
         }
 
-        // Fetch products (tenant-scoped)
+        // Fetch products (tenant-scoped) – API returns { products, total, page, totalPages }
         const productsResponse = await fetch(`${apiUrl}/products?limit=100`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (productsResponse.ok) {
           const productsData = await productsResponse.json();
-          setProducts(productsData);
+          setProducts(Array.isArray(productsData.products) ? productsData.products : []);
         }
       } catch (error) {
         console.error('Error fetching data:', error);
