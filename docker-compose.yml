@@ -106,6 +106,7 @@ services:
       CI: "true"
       DATABASE_URL: ${DATABASE_URL:-postgresql://postgres:postgres@postgres:5432/social_commerce}
       REDIS_URL: redis://redis:6379
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-default-key-change-me}
       NODE_ENV: ${NODE_ENV:-development}
       REDIS_HOST: redis
       REDIS_PORT: 6379
