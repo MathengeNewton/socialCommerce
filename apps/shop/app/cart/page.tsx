@@ -1,11 +1,15 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import ShopHeader from '../components/ShopHeader';
 import { useCart } from '../context/CartContext';
+import { useToast } from '../context/ToastContext';
 
 export default function CartPage() {
   const { cart, loading, updateQuantity, removeItem } = useCart();
+  const { toast } = useToast();
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
 
   const items = cart?.items ?? [];
   const total = items.reduce((s, i) => s + i.price * i.quantity, 0);
@@ -96,22 +100,56 @@ export default function CartPage() {
                 <div className="flex flex-col items-end gap-2">
                   <div className="flex items-center gap-1 border border-shop-border rounded-lg">
                     <button
-                      onClick={() => updateQuantity(item.id, Math.max(1, item.quantity - 1))}
-                      className="w-8 h-8 flex items-center justify-center text-shop-fg hover:bg-shop-border/50 rounded-l-md"
+                      type="button"
+                      disabled={updatingId === item.id}
+                      onClick={async () => {
+                        const newQty = item.quantity - 1;
+                        setUpdatingId(item.id);
+                        try {
+                          await updateQuantity(item.id, newQty <= 0 ? 0 : newQty);
+                        } catch (e) {
+                          toast(e instanceof Error ? e.message : 'Failed to update quantity', 'error');
+                        } finally {
+                          setUpdatingId(null);
+                        }
+                      }}
+                      className="w-8 h-8 flex items-center justify-center text-shop-fg hover:bg-shop-border/50 rounded-l-md disabled:opacity-50"
                     >
                       −
                     </button>
                     <span className="w-8 text-center text-sm font-medium">{item.quantity}</span>
                     <button
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      className="w-8 h-8 flex items-center justify-center text-shop-fg hover:bg-shop-border/50 rounded-r-md"
+                      type="button"
+                      disabled={updatingId === item.id}
+                      onClick={async () => {
+                        setUpdatingId(item.id);
+                        try {
+                          await updateQuantity(item.id, item.quantity + 1);
+                        } catch (e) {
+                          toast(e instanceof Error ? e.message : 'Failed to update quantity', 'error');
+                        } finally {
+                          setUpdatingId(null);
+                        }
+                      }}
+                      className="w-8 h-8 flex items-center justify-center text-shop-fg hover:bg-shop-border/50 rounded-r-md disabled:opacity-50"
                     >
                       +
                     </button>
                   </div>
                   <button
-                    onClick={() => removeItem(item.id)}
-                    className="text-xs text-red-600 hover:text-red-500"
+                    type="button"
+                    disabled={updatingId === item.id}
+                    onClick={async () => {
+                      setUpdatingId(item.id);
+                      try {
+                        await removeItem(item.id);
+                      } catch (e) {
+                        toast(e instanceof Error ? e.message : 'Failed to remove item', 'error');
+                      } finally {
+                        setUpdatingId(null);
+                      }
+                    }}
+                    className="text-xs text-red-600 hover:text-red-500 disabled:opacity-50"
                   >
                     Remove
                   </button>
