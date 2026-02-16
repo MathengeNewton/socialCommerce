@@ -126,13 +126,7 @@ export class StoreService {
       where,
       include: {
         supplier: true,
-        variants: {
-          where: {
-            stock: {
-              gt: 0,
-            },
-          },
-        },
+        variants: true,
         images: {
           include: {
             media: true,
@@ -146,6 +140,17 @@ export class StoreService {
 
     if (!product) {
       throw new NotFoundException(`Product with slug "${slug}" not found`);
+    }
+
+    // Ensure variants are loaded (workaround if include was ever filtered or not applied)
+    if (product.variants.length === 0) {
+      const withVariants = await this.prisma.product.findUnique({
+        where: { id: product.id },
+        select: { variants: true },
+      });
+      if (withVariants?.variants?.length) {
+        (product as { variants: typeof withVariants.variants }).variants = withVariants.variants;
+      }
     }
 
     return product;
