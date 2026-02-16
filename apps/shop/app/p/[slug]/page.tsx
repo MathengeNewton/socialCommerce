@@ -244,23 +244,7 @@ export default function ProductDetailPage() {
                 </div>
               )}
 
-              <div className="product-description mb-6 max-w-xl text-sm text-shop-muted leading-relaxed">
-                <ReactMarkdown
-                  components={{
-                    h1: ({ children, ...props }) => <h1 className="text-shop-fg font-bold text-xl mt-0 mb-3" {...props}>{children}</h1>,
-                    h2: ({ children, ...props }) => <h2 className="text-shop-fg font-semibold text-base mt-6 mb-2 first:mt-0" {...props}>{children}</h2>,
-                    h3: ({ children, ...props }) => <h3 className="text-shop-fg font-medium text-sm mt-4 mb-1" {...props}>{children}</h3>,
-                    p: ({ children, ...props }) => <p className="my-2" {...props}>{children}</p>,
-                    ul: ({ children, ...props }) => <ul className="list-disc list-inside my-2 space-y-0.5" {...props}>{children}</ul>,
-                    li: ({ children, ...props }) => <li {...props}>{children}</li>,
-                    strong: ({ children, ...props }) => <strong className="text-shop-fg font-semibold" {...props}>{children}</strong>,
-                  }}
-                >
-                  {product.description || ''}
-                </ReactMarkdown>
-              </div>
-
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-wrap">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 flex-wrap mb-6">
                 <div className="flex items-center gap-3">
                   <label className="text-sm font-semibold text-shop-fg shrink-0">Quantity</label>
                   <div className="flex items-center border-2 border-shop-border rounded-xl overflow-hidden">
@@ -316,6 +300,22 @@ export default function ProductDetailPage() {
                     Buy Now
                   </button>
                 </div>
+              </div>
+
+              <div className="product-description max-w-xl text-sm text-shop-muted leading-relaxed">
+                <ReactMarkdown
+                  components={{
+                    h1: ({ children, ...props }) => <h1 className="text-shop-fg font-bold text-xl mt-0 mb-3" {...props}>{children}</h1>,
+                    h2: ({ children, ...props }) => <h2 className="text-shop-fg font-semibold text-base mt-6 mb-2 first:mt-0" {...props}>{children}</h2>,
+                    h3: ({ children, ...props }) => <h3 className="text-shop-fg font-medium text-sm mt-4 mb-1" {...props}>{children}</h3>,
+                    p: ({ children, ...props }) => <p className="my-2" {...props}>{children}</p>,
+                    ul: ({ children, ...props }) => <ul className="list-disc list-inside my-2 space-y-0.5" {...props}>{children}</ul>,
+                    li: ({ children, ...props }) => <li {...props}>{children}</li>,
+                    strong: ({ children, ...props }) => <strong className="text-shop-fg font-semibold" {...props}>{children}</strong>,
+                  }}
+                >
+                  {product.description || ''}
+                </ReactMarkdown>
               </div>
             </div>
           </div>
