@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import ThemeProvider from './components/ThemeProvider';
 import ThemeScript from './components/ThemeScript';
@@ -6,10 +6,15 @@ import CartProviderWrapper from './components/CartProviderWrapper';
 import ShopFooter from './components/ShopFooter';
 import { ToastProvider } from './context/ToastContext';
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export const metadata: Metadata = {
   title: 'hhourssop Shop',
   description: 'Shop at hhourssop',
-  viewport: 'width=device-width, initial-scale=1, maximum-scale=1',
 };
 
 export default function RootLayout({
