@@ -18,7 +18,9 @@ type CartItem = {
     currency: string;
     images?: Array<{ media: { url: string } }>;
   };
-  variant?: { id: string; name: string } | null;
+  /** Variant the user picked; price shown is from variant when set, else product listPrice */
+  variant?: { id: string; name: string; sku?: string; price?: number | string; currency?: string | null } | null;
+  /** Line unit price: variant price when variant is selected, else product list price */
   price: number;
 };
 

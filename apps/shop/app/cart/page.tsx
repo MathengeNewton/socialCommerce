@@ -64,7 +64,11 @@ export default function CartPage() {
 
         <div className="bg-shop-card rounded-2xl border border-shop-border overflow-hidden">
           <ul className="divide-y divide-shop-border">
-            {items.map((item) => (
+            {items.map((item) => {
+              const currency = item.variant?.currency && String(item.variant.currency).trim() ? String(item.variant.currency) : item.product.currency;
+              const unitPrice = item.price;
+              const lineTotal = unitPrice * item.quantity;
+              return (
               <li key={item.id} className="flex gap-4 p-4 sm:p-6">
                 <div className="w-20 h-20 shrink-0 bg-shop-placeholder rounded-xl flex items-center justify-center overflow-hidden">
                   {item.product.images?.[0]?.media?.url ? (
@@ -80,10 +84,13 @@ export default function CartPage() {
                     {item.product.title}
                   </Link>
                   {item.variant && (
-                    <p className="text-sm text-shop-muted">{item.variant.name}</p>
+                    <p className="text-sm font-medium text-shop-fg mt-1">
+                      Variant: {item.variant.name}
+                      {item.variant.sku && <span className="text-shop-muted font-normal ml-1">({item.variant.sku})</span>}
+                    </p>
                   )}
-                  <p className="text-shop-accent font-medium mt-1">
-                    {item.product.currency} {item.price.toLocaleString()} × {item.quantity}
+                  <p className="text-shop-muted text-sm mt-0.5">
+                    {currency} {Number(unitPrice).toLocaleString(undefined, { minimumFractionDigits: 2 })} each × {item.quantity} = {currency} {lineTotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-2">
@@ -110,7 +117,8 @@ export default function CartPage() {
                   </button>
                 </div>
               </li>
-            ))}
+            );
+            })}
           </ul>
 
           <div className="p-4 sm:p-6 border-t border-shop-border flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4">
