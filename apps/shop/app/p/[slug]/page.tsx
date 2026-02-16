@@ -70,9 +70,9 @@ export default function ProductDetailPage() {
 
   const handleBuyNow = async () => {
     if (!product) return;
-    const canAdd = product.variants?.length ? selectedVariant && selectedVariant.stock >= quantity : true;
-    if (!canAdd) {
-      toast('Please select a variant with enough stock', 'error');
+    const hasVariant = !product.variants?.length || selectedVariant;
+    if (!hasVariant) {
+      toast('Please select a variant', 'error');
       return;
     }
     setAdding(true);
@@ -283,7 +283,7 @@ export default function ProductDetailPage() {
                   <button
                     type="button"
                     onClick={handleAddToCart}
-                    disabled={adding || (product.variants?.length > 0 && (!selectedVariant || selectedVariant.stock === 0))}
+                    disabled={adding || (product.variants?.length > 0 && !selectedVariant)}
                     className="flex-1 sm:flex-none bg-shop-accent text-white px-6 py-3.5 rounded-xl font-bold hover:bg-shop-accent-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -294,7 +294,7 @@ export default function ProductDetailPage() {
                   <button
                     type="button"
                     onClick={handleBuyNow}
-                    disabled={adding || (product.variants?.length > 0 && (!selectedVariant || selectedVariant.stock === 0))}
+                    disabled={adding || (product.variants?.length > 0 && !selectedVariant)}
                     className="flex-1 sm:flex-none bg-shop-fg text-shop-bg px-6 py-3.5 rounded-xl font-bold hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     Buy Now

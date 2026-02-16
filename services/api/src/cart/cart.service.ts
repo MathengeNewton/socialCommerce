@@ -141,7 +141,8 @@ export class CartService {
 
     if (variantId) {
       const v = product.variants?.find((x) => x.id === variantId);
-      if (!v || v.stock < quantity) throw new Error('Variant not found or insufficient stock');
+      if (!v) throw new Error('Variant not found');
+      if (v.stock > 0 && v.stock < quantity) throw new Error('Insufficient stock');
     }
 
     const existing = await this.prisma.cartItem.findFirst({
@@ -264,7 +265,7 @@ export class CartService {
         if (!variant) {
           throw new Error(`Variant ${item.variantId} not found`);
         }
-        if (variant.stock < item.quantity) {
+        if (variant.stock > 0 && variant.stock < item.quantity) {
           throw new Error(`Insufficient stock for variant ${item.variantId}`);
         }
       }
