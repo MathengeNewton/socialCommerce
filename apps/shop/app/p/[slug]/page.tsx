@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import ReactMarkdown from 'react-markdown';
 import ShopHeader from '../../components/ShopHeader';
 import { useCart } from '../../context/CartContext';
 import { useToast } from '../../context/ToastContext';
@@ -148,7 +149,21 @@ export default function ProductDetailPage() {
                 )}
               </div>
 
-              <p className="text-shop-fg mb-8 leading-relaxed">{product.description}</p>
+              <div className="product-description mb-8 max-w-xl text-sm text-shop-muted leading-relaxed">
+                <ReactMarkdown
+                  components={{
+                    h1: ({ children, ...props }) => <h1 className="text-shop-fg font-bold text-xl mt-0 mb-3" {...props}>{children}</h1>,
+                    h2: ({ children, ...props }) => <h2 className="text-shop-fg font-semibold text-base mt-6 mb-2 first:mt-0" {...props}>{children}</h2>,
+                    h3: ({ children, ...props }) => <h3 className="text-shop-fg font-medium text-sm mt-4 mb-1" {...props}>{children}</h3>,
+                    p: ({ children, ...props }) => <p className="my-2" {...props}>{children}</p>,
+                    ul: ({ children, ...props }) => <ul className="list-disc list-inside my-2 space-y-0.5" {...props}>{children}</ul>,
+                    li: ({ children, ...props }) => <li {...props}>{children}</li>,
+                    strong: ({ children, ...props }) => <strong className="text-shop-fg font-semibold" {...props}>{children}</strong>,
+                  }}
+                >
+                  {product.description || ''}
+                </ReactMarkdown>
+              </div>
 
               {product.variants && product.variants.length > 0 && (
                 <div className="mb-6">
