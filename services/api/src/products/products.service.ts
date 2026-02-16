@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
 import { createProductSchema, updateProductSchema } from '@social-commerce/shared';
+import type { BulkImportResult, BulkImportRowResult } from '@social-commerce/shared';
 
 @Injectable()
 export class ProductsService {
@@ -72,17 +73,25 @@ export class ProductsService {
       });
     }
 
-    // Create variants if provided
-    if (validated.variantName && validated.variantOptions) {
-      const variants = validated.variantOptions.map((option) => ({
-        productId: product.id,
-        sku: `${validated.slug}-${option.toLowerCase().replace(/\s+/g, '-')}`,
-        name: `${validated.variantName}: ${option}`,
-        stock: 0,
-      }));
-
+    // Create variants if provided (each with optional price/currency/stock)
+    if (validated.variantName && validated.variantOptions?.length) {
+      const variantRows = validated.variantOptions.map((option) => {
+        const isObj = typeof option === 'object' && option !== null && 'name' in option;
+        const name = isObj ? (option as { name: string }).name : String(option);
+        const price = isObj ? (option as { price?: number }).price : undefined;
+        const currency = isObj ? (option as { currency?: string }).currency : undefined;
+        const stock = isObj ? (option as { stock?: number }).stock ?? 0 : 0;
+        return {
+          productId: product.id,
+          sku: `${validated.slug}-${name.toLowerCase().replace(/\s+/g, '-')}`,
+          name: validated.variantName ? `${validated.variantName}: ${name}` : name,
+          stock,
+          price: price != null ? price : undefined,
+          currency: currency ?? undefined,
+        };
+      });
       await this.prisma.productVariant.createMany({
-        data: variants,
+        data: variantRows,
       });
     }
 
@@ -241,6 +250,29 @@ export class ProductsService {
       updateData.categoryId = validated.categoryId || null;
     }
 
+    // Replace variants if provided
+    if (validated.variantName !== undefined && validated.variantOptions !== undefined) {
+      await this.prisma.productVariant.deleteMany({ where: { productId: id } });
+      if (validated.variantOptions.length > 0) {
+        const variantRows = validated.variantOptions.map((option) => {
+          const isObj = typeof option === 'object' && option !== null && 'name' in option;
+          const name = isObj ? (option as { name: string }).name : String(option);
+          const price = isObj ? (option as { price?: number }).price : undefined;
+          const currency = isObj ? (option as { currency?: string }).currency : undefined;
+          const stock = isObj ? (option as { stock?: number }).stock ?? 0 : 0;
+          return {
+            productId: id,
+            sku: `${updateData.slug ?? existing.slug}-${name.toLowerCase().replace(/\s+/g, '-')}`,
+            name: validated.variantName ? `${validated.variantName}: ${name}` : name,
+            stock,
+            price: price != null ? price : undefined,
+            currency: currency ?? undefined,
+          };
+        });
+        await this.prisma.productVariant.createMany({ data: variantRows });
+      }
+    }
+
     // Update product images if provided
     if (validated.imageIds !== undefined) {
       await this.prisma.productImage.deleteMany({ where: { productId: id } });
@@ -307,5 +339,62 @@ export class ProductsService {
     return this.prisma.product.delete({
       where: { id },
     });
+  }
+
+  /** Bulk import: one product per row (with optional variants). Process each row; do not fail whole batch. */
+  async bulkImport(
+    tenantId: string,
+    rows: Array<{
+      supplierId: string;
+      categoryId?: string | null;
+      title: string;
+      description: string;
+      slug: string;
+      listPrice: number;
+      currency?: string;
+      status?: string;
+      supplyPrice?: number;
+      minSellPrice?: number;
+      variantName?: string;
+      variantOptions?: Array<string | { name: string; price?: number; currency?: string; stock?: number }>;
+    }>,
+  ): Promise<BulkImportResult> {
+    const results: BulkImportRowResult[] = [];
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      const row = rows[rowIndex];
+      try {
+        const slug =
+          row.slug?.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') ||
+          row.title?.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') ||
+          `product-${rowIndex + 1}`;
+        const createDto = {
+          supplierId: row.supplierId,
+          categoryId: row.categoryId ?? null,
+          title: row.title?.trim() ?? 'Untitled',
+          description: row.description?.trim() ?? '',
+          slug,
+          listPrice: Number(row.listPrice) || 0,
+          currency: row.currency ?? 'KES',
+          status: row.status === 'published' ? 'published' : 'draft',
+          supplyPrice: row.supplyPrice != null ? Number(row.supplyPrice) : Number(row.listPrice) || 0,
+          minSellPrice: row.minSellPrice != null ? Number(row.minSellPrice) : Number(row.listPrice) || 0,
+          variantName: row.variantName?.trim() || undefined,
+          variantOptions: row.variantOptions,
+        };
+        const created = await this.create(tenantId, createDto);
+        results.push({ rowIndex: rowIndex + 1, success: true, id: created.id });
+      } catch (err: any) {
+        results.push({
+          rowIndex: rowIndex + 1,
+          success: false,
+          error: err?.message ?? String(err),
+        });
+      }
+    }
+    const succeeded = results.filter((r) => r.success).length;
+    return {
+      summary: { total: rows.length, succeeded, failed: rows.length - succeeded },
+      results,
+    };
   }
 }

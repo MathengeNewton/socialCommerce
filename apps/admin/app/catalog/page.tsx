@@ -4,12 +4,14 @@ import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AdminNav from '../components/AdminNav';
 import DataTable, { DataTableColumn } from '../components/DataTable';
+import { BulkResultModal } from '../components/BulkResultModal';
 import { useToast } from '../components/ToastContext';
 import { useConfirm } from '../components/ConfirmContext';
 
 type Supplier = { id: string; name: string; email?: string | null; phone?: string | null };
 type Category = { id: string; name: string; slug: string; order: number };
 type ProductImage = { id: string; mediaId: string; order: number; media?: { id: string; url: string } };
+type ProductVariant = { id: string; name: string; sku: string; stock: number; price?: unknown; currency?: string | null };
 type Product = {
   id: string;
   supplierId: string;
@@ -26,8 +28,10 @@ type Product = {
   supplier?: Supplier;
   category?: Category | null;
   images?: ProductImage[];
+  variants?: ProductVariant[];
 };
 
+type VariantOption = { name: string; price: number | ''; currency: string; stock: number };
 const defaultProduct = {
   title: '',
   description: '',
@@ -41,6 +45,8 @@ const defaultProduct = {
   listPrice: 0,
   priceDisclaimer: '',
   imageIds: [] as string[],
+  variantName: '' as string,
+  variantOptions: [] as VariantOption[],
 };
 
 function CatalogContent() {
@@ -76,6 +82,8 @@ function CatalogContent() {
   const [saving, setSaving] = useState(false);
   const [productImages, setProductImages] = useState<Array<{ id: string; url: string }>>([]);
   const [imageUploading, setImageUploading] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ summary: { total: number; succeeded: number; failed: number }; results: { rowIndex: number; success: boolean; id?: string; error?: string }[] } | null>(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
   const { toast } = useToast();
   const { confirm } = useConfirm();
 
@@ -217,6 +225,54 @@ function CatalogContent() {
     }
   };
 
+  const handleCategoriesBulkFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || bulkUploading) return;
+    const headers = authHeaders();
+    if (!headers) return;
+    setBulkUploading(true);
+    toast('Uploading categories…', 'info');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${apiUrl}/categories/bulk/upload`, { method: 'POST', headers, body: formData });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || 'Upload failed');
+      setBulkResult(data);
+      await fetchCategories();
+      toast(`Categories import complete: ${data.summary?.succeeded ?? 0} succeeded, ${data.summary?.failed ?? 0} failed`, data.summary?.failed ? 'info' : 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Upload failed', 'error');
+    } finally {
+      setBulkUploading(false);
+    }
+  };
+
+  const handleProductsBulkFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || bulkUploading) return;
+    const headers = authHeaders();
+    if (!headers) return;
+    setBulkUploading(true);
+    toast('Uploading products…', 'info');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${apiUrl}/products/bulk/upload`, { method: 'POST', headers, body: formData });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || 'Upload failed');
+      setBulkResult(data);
+      await fetchProducts();
+      toast(`Products import complete: ${data.summary?.succeeded ?? 0} succeeded, ${data.summary?.failed ?? 0} failed`, data.summary?.failed ? 'info' : 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Upload failed', 'error');
+    } finally {
+      setBulkUploading(false);
+    }
+  };
+
   const openAddProduct = () => {
     setEditingProductId(null);
     setProductImages([]);
@@ -232,6 +288,26 @@ function CatalogContent() {
     setEditingProductId(p.id);
     const images = (p as Product & { images?: ProductImage[] }).images ?? [];
     const sorted = [...images].sort((a, b) => a.order - b.order);
+    const variants = (p as Product & { variants?: ProductVariant[] }).variants ?? [];
+    let variantName = '';
+    const variantOptions: VariantOption[] = variants.map((v) => {
+      const match = v.name.match(/^(.+):\s*(.+)$/);
+      if (match) {
+        if (!variantName) variantName = match[1].trim();
+        return {
+          name: match[2].trim(),
+          price: v.price != null ? num(v.price) : '',
+          currency: (v.currency ?? p.currency).slice(0, 3),
+          stock: v.stock ?? 0,
+        };
+      }
+      return {
+        name: v.name,
+        price: v.price != null ? num(v.price) : '',
+        currency: (v.currency ?? p.currency).slice(0, 3),
+        stock: v.stock ?? 0,
+      };
+    });
     setProductImages(
       sorted.map((img) => ({
         id: img.media?.id ?? img.mediaId,
@@ -252,6 +328,8 @@ function CatalogContent() {
       listPrice: num(p.listPrice ?? p.price),
       priceDisclaimer: (p as Product & { priceDisclaimer?: string }).priceDisclaimer ?? '',
       imageIds: sorted.map((img) => img.mediaId),
+      variantName,
+      variantOptions,
     });
     setShowProductForm(true);
   };
@@ -261,6 +339,18 @@ function CatalogContent() {
     if (!headers) return;
     const slug = productForm.slug.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') ||
       productForm.title.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') || 'product';
+    const variantOptionsPayload =
+      productForm.variantName?.trim() && productForm.variantOptions?.length
+        ? productForm.variantOptions
+            .filter((o) => o.name.trim())
+            .map((o) => ({
+              name: o.name.trim(),
+              price: o.price === '' ? undefined : Number(o.price),
+              currency: o.currency || undefined,
+              stock: Number(o.stock) || 0,
+            }))
+        : undefined;
+
     const payload = {
       supplierId: productForm.supplierId,
       categoryId: productForm.categoryId || undefined,
@@ -275,6 +365,8 @@ function CatalogContent() {
       price: Number(productForm.listPrice),
       priceDisclaimer: productForm.priceDisclaimer?.trim() || undefined,
       imageIds: productForm.imageIds?.length ? productForm.imageIds : undefined,
+      variantName: productForm.variantName?.trim() || undefined,
+      variantOptions: variantOptionsPayload,
     };
     if (!payload.title || !payload.supplierId) {
       setError('Title and supplier are required');
@@ -343,20 +435,32 @@ function CatalogContent() {
   ];
 
   const productRows = useMemo(() =>
-    products.map((p) => ({
-      ...p,
-      _categoryName: p.category?.name ?? '',
-      _supplierName: p.supplier?.name ?? '',
-      _priceStr: `${p.currency} ${num(p.listPrice ?? p.price).toFixed(2)}`,
-    })),
+    products.map((p) => {
+      const variants = (p as Product & { variants?: ProductVariant[] }).variants ?? [];
+      const listPriceStr = `${p.currency} ${num(p.listPrice ?? p.price).toFixed(2)}`;
+      const variantPrices = variants.map((v) => (v.price != null ? num(v.price) : num(p.listPrice ?? p.price)));
+      const priceStr =
+        variants.length > 0
+          ? variantPrices.length > 0
+            ? `From ${p.currency} ${Math.min(...variantPrices).toFixed(2)} (${variants.length} variant${variants.length === 1 ? '' : 's'})`
+            : `${listPriceStr} (${variants.length} variant${variants.length === 1 ? '' : 's'})`
+          : listPriceStr;
+      return {
+        ...p,
+        _categoryName: p.category?.name ?? '',
+        _supplierName: p.supplier?.name ?? '',
+        _priceStr: priceStr,
+        _variantCount: variants.length,
+      };
+    }),
     [products]
   );
 
-  const productColumns: DataTableColumn<Product & { _categoryName: string; _supplierName: string; _priceStr: string }>[] = [
+  const productColumns: DataTableColumn<Product & { _categoryName: string; _supplierName: string; _priceStr: string; _variantCount: number }>[] = [
     { key: 'title', label: 'Product', sortable: true, exportValue: (r) => r.title, render: (r) => <><div className="font-medium">{r.title}</div><div className="text-xs text-gray-500">{r.slug}</div></> },
     { key: '_categoryName', label: 'Category', sortable: true, exportValue: (r) => r._categoryName || '—', render: (r) => r._categoryName || '—' },
     { key: '_supplierName', label: 'Supplier', sortable: true, exportValue: (r) => r._supplierName, render: (r) => r._supplierName || '—' },
-    { key: '_priceStr', label: 'Price', sortable: true, exportValue: (r) => r._priceStr, render: (r) => r._priceStr },
+    { key: '_priceStr', label: 'Price', sortable: true, exportValue: (r) => r._priceStr, render: (r) => <span className="whitespace-nowrap">{r._priceStr}</span> },
     { key: 'status', label: 'Status', sortable: true, exportValue: (r) => r.status, render: (r) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${r.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>{r.status}</span> },
     {
       key: 'actions',
@@ -415,19 +519,27 @@ function CatalogContent() {
 
         {activeTab === 'categories' && (
           <>
-            <DataTable
-              title="Categories"
-              columns={categoryColumns}
-              data={categories}
-              getRowId={(r) => r.id}
-              emptyMessage="No categories yet. Create one to organize your products."
-              actions={
-                <button onClick={openAddCategory} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                  Add Category
-                </button>
-              }
-            />
+            <>
+              <input type="file" accept=".csv" className="hidden" id="categories-bulk-file" onChange={handleCategoriesBulkFile} disabled={bulkUploading} />
+              <DataTable
+                title="Categories"
+                columns={categoryColumns}
+                data={categories}
+                getRowId={(r) => r.id}
+                emptyMessage="No categories yet. Create one to organize your products."
+                actions={
+                  <span className="flex items-center gap-2">
+                    <label htmlFor="categories-bulk-file" className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 cursor-pointer ${bulkUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                      {bulkUploading ? 'Uploading…' : 'Bulk upload (CSV)'}
+                    </label>
+                    <button onClick={openAddCategory} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      Add Category
+                    </button>
+                  </span>
+                }
+              />
+            </>
           </>
         )}
 
@@ -451,10 +563,16 @@ function CatalogContent() {
                     </select>
                 }
                 actions={
-                  <button onClick={openAddProduct} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                    Add Product
-                  </button>
+                  <span className="flex items-center gap-2">
+                    <input type="file" accept=".csv" className="hidden" id="products-bulk-file" onChange={handleProductsBulkFile} disabled={bulkUploading} />
+                    <label htmlFor="products-bulk-file" className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 cursor-pointer ${bulkUploading ? 'opacity-50 pointer-events-none' : ''}`}>
+                      {bulkUploading ? 'Uploading…' : 'Bulk upload (CSV)'}
+                    </label>
+                    <button onClick={openAddProduct} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+                      Add Product
+                    </button>
+                  </span>
                 }
                 pagination={totalPages > 1 ? { page, totalPages, total, pageSize, onPageChange: setPage } : undefined}
               />
@@ -609,9 +727,122 @@ function CatalogContent() {
                   <input type="number" step="0.01" min="0" value={productForm.minSellPrice} onChange={(e) => setProductForm((f) => ({ ...f, minSellPrice: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">List price</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">List price (fallback)</label>
                   <input type="number" step="0.01" min="0" value={productForm.listPrice} onChange={(e) => setProductForm((f) => ({ ...f, listPrice: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Variants (e.g. storage options)</label>
+                <p className="text-xs text-gray-500 mb-2">Add options like 64GB, 128GB with price and stock per variant. Leave empty for no variants.</p>
+                <div className="mb-2">
+                  <input
+                    type="text"
+                    value={productForm.variantName}
+                    onChange={(e) => setProductForm((f) => ({ ...f, variantName: e.target.value }))}
+                    className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-lg"
+                    placeholder="Variant label (e.g. Storage)"
+                  />
+                </div>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="text-left px-3 py-2 font-medium">Option (e.g. 64GB)</th>
+                        <th className="text-left px-3 py-2 font-medium">Price</th>
+                        <th className="text-left px-3 py-2 font-medium">Currency</th>
+                        <th className="text-left px-3 py-2 font-medium">Stock</th>
+                        <th className="w-10" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(productForm.variantOptions ?? []).map((opt, idx) => (
+                        <tr key={idx} className="border-t border-gray-100">
+                          <td className="px-3 py-2">
+                            <input
+                              type="text"
+                              value={opt.name}
+                              onChange={(e) =>
+                                setProductForm((f) => ({
+                                  ...f,
+                                  variantOptions: (f.variantOptions ?? []).map((o, i) => (i === idx ? { ...o, name: e.target.value } : o)),
+                                }))
+                              }
+                              className="w-full px-2 py-1.5 border border-gray-200 rounded"
+                              placeholder="64GB"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={opt.price === '' ? '' : opt.price}
+                              onChange={(e) =>
+                                setProductForm((f) => ({
+                                  ...f,
+                                  variantOptions: (f.variantOptions ?? []).map((o, i) => (i === idx ? { ...o, price: e.target.value === '' ? '' : parseFloat(e.target.value) || 0 } : o)),
+                                }))
+                              }
+                              className="w-full px-2 py-1.5 border border-gray-200 rounded"
+                              placeholder="—"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <select
+                              value={opt.currency}
+                              onChange={(e) =>
+                                setProductForm((f) => ({
+                                  ...f,
+                                  variantOptions: (f.variantOptions ?? []).map((o, i) => (i === idx ? { ...o, currency: e.target.value } : o)),
+                                }))
+                              }
+                              className="w-full px-2 py-1.5 border border-gray-200 rounded"
+                            >
+                              <option value="KES">KES</option>
+                              <option value="USD">USD</option>
+                            </select>
+                          </td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              min="0"
+                              value={opt.stock}
+                              onChange={(e) =>
+                                setProductForm((f) => ({
+                                  ...f,
+                                  variantOptions: (f.variantOptions ?? []).map((o, i) => (i === idx ? { ...o, stock: parseInt(e.target.value, 10) || 0 } : o)),
+                                }))
+                              }
+                              className="w-full px-2 py-1.5 border border-gray-200 rounded"
+                            />
+                          </td>
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => setProductForm((f) => ({ ...f, variantOptions: (f.variantOptions ?? []).filter((_, i) => i !== idx) }))}
+                              className="text-red-600 hover:underline text-xs"
+                              aria-label="Remove"
+                            >
+                              Remove
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setProductForm((f) => ({
+                      ...f,
+                      variantOptions: [...(f.variantOptions ?? []), { name: '', price: '', currency: f.currency, stock: 0 }],
+                    }))
+                  }
+                  className="mt-2 text-sm text-blue-600 hover:underline font-medium"
+                >
+                  + Add variant option
+                </button>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -636,6 +867,15 @@ function CatalogContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {bulkResult && (
+        <BulkResultModal
+          title="Bulk import result"
+          summary={bulkResult.summary}
+          results={bulkResult.results}
+          onClose={() => setBulkResult(null)}
+        />
       )}
     </div>
   );

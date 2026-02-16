@@ -38,7 +38,19 @@ const productBaseSchema = z.object({
   listPrice: z.number().positive(),
   priceDisclaimer: z.string().max(500).optional(),
   variantName: z.string().optional(),
-  variantOptions: z.array(z.string()).optional(),
+  variantOptions: z
+    .array(
+      z.union([
+        z.string(),
+        z.object({
+          name: z.string(),
+          price: z.number().nonnegative().optional(),
+          currency: z.string().max(3).optional(),
+          stock: z.number().int().min(0).optional(),
+        }),
+      ])
+    )
+    .optional(),
   imageIds: z.array(z.string().uuid()).optional(),
 });
 

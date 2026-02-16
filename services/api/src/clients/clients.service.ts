@@ -1,5 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import type { BulkImportResult, BulkImportRowResult } from '@social-commerce/shared';
 
 @Injectable()
 export class ClientsService {
@@ -102,6 +103,34 @@ export class ClientsService {
       clientId,
       hasAnyDestination: destinationsCount > 0,
       destinationsCount,
+    };
+  }
+
+  /** Bulk import: process each row, do not fail whole batch. */
+  async bulkImport(tenantId: string, rows: Array<{ name: string }>): Promise<BulkImportResult> {
+    const results: BulkImportRowResult[] = [];
+    for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+      const row = rows[rowIndex];
+      try {
+        const name = (row.name ?? '').trim();
+        if (!name) {
+          results.push({ rowIndex: rowIndex + 1, success: false, error: 'Name is required' });
+          continue;
+        }
+        const created = await this.create(tenantId, { name });
+        results.push({ rowIndex: rowIndex + 1, success: true, id: created.id });
+      } catch (err: any) {
+        results.push({
+          rowIndex: rowIndex + 1,
+          success: false,
+          error: err?.message ?? String(err),
+        });
+      }
+    }
+    const succeeded = results.filter((r) => r.success).length;
+    return {
+      summary: { total: rows.length, succeeded, failed: rows.length - succeeded },
+      results,
     };
   }
 }

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import AdminNav from '../components/AdminNav';
 import DataTable, { DataTableColumn } from '../components/DataTable';
+import { BulkResultModal } from '../components/BulkResultModal';
 import { useToast } from '../components/ToastContext';
 
 type Client = {
@@ -27,6 +28,8 @@ export default function ClientsPage() {
   const [newName, setNewName] = useState('');
   const [creating, setCreating] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ summary: { total: number; succeeded: number; failed: number }; results: { rowIndex: number; success: boolean; id?: string; error?: string }[] } | null>(null);
+  const [bulkUploading, setBulkUploading] = useState(false);
   const { toast } = useToast();
 
   const authHeaders = () => {
@@ -101,6 +104,30 @@ export default function ClientsPage() {
       toast(e instanceof Error ? e.message : 'Failed to create client', 'error');
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleClientsBulkFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || bulkUploading) return;
+    const headers = authHeaders();
+    if (!headers) return;
+    setBulkUploading(true);
+    toast('Uploading clients…', 'info');
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch(`${apiUrl}/clients/bulk/upload`, { method: 'POST', headers, body: formData });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || 'Upload failed');
+      setBulkResult(data);
+      await fetchClients();
+      toast(`Clients import complete: ${data.summary?.succeeded ?? 0} succeeded, ${data.summary?.failed ?? 0} failed`, data.summary?.failed ? 'info' : 'success');
+    } catch (err) {
+      toast(err instanceof Error ? err.message : 'Upload failed', 'error');
+    } finally {
+      setBulkUploading(false);
     }
   };
 
@@ -217,6 +244,13 @@ export default function ClientsPage() {
                   />
                   Show inactive
                 </label>
+                <input type="file" accept=".csv" className="hidden" id="clients-bulk-file" onChange={handleClientsBulkFile} disabled={bulkUploading} />
+                <label
+                  htmlFor="clients-bulk-file"
+                  className={`inline-flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg font-medium hover:bg-slate-50 cursor-pointer ${bulkUploading ? 'opacity-50 pointer-events-none' : ''}`}
+                >
+                  {bulkUploading ? 'Uploading…' : 'Bulk upload (CSV)'}
+                </label>
                 <button
                   onClick={() => setShowCreate(true)}
                   className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
@@ -287,6 +321,15 @@ export default function ClientsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {bulkResult && (
+        <BulkResultModal
+          title="Bulk import result"
+          summary={bulkResult.summary}
+          results={bulkResult.results}
+          onClose={() => setBulkResult(null)}
+        />
       )}
     </div>
   );

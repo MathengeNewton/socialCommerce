@@ -1,7 +1,9 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, Request, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, Put, Query, Request, UseGuards, UseInterceptors, UploadedFile, BadRequestException } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../tenant/tenant.guard';
 import { ClientsService } from './clients.service';
+import { parseCsvToRows } from '../common/csv.util';
 
 @Controller('clients')
 @UseGuards(JwtAuthGuard, TenantGuard)
@@ -11,6 +13,21 @@ export class ClientsController {
   @Get()
   async findAll(@Request() req, @Query('includeInactive') includeInactive?: string) {
     return this.clientsService.findAll(req.user.tenantId, includeInactive !== 'false');
+  }
+
+  @Post('bulk')
+  async bulkImport(@Request() req, @Body() body: { rows: Array<{ name: string }> }) {
+    const rows = Array.isArray(body?.rows) ? body.rows : [];
+    return this.clientsService.bulkImport(req.user.tenantId, rows);
+  }
+
+  @Post('bulk/upload')
+  @UseInterceptors(FileInterceptor('file'))
+  async bulkUpload(@Request() req, @UploadedFile() file: Express.Multer.File) {
+    if (!file?.buffer) throw new BadRequestException('File is required');
+    const { rows } = parseCsvToRows(file.buffer);
+    const payload = rows.map((r) => ({ name: (r.name ?? '').trim() }));
+    return this.clientsService.bulkImport(req.user.tenantId, payload);
   }
 
   @Get(':id/detail')

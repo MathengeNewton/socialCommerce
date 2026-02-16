@@ -208,3 +208,17 @@ export interface OrderItem {
   price: number;
   createdAt: Date;
 }
+
+/** Result of a single row in a bulk import */
+export interface BulkImportRowResult {
+  rowIndex: number;
+  success: boolean;
+  id?: string;
+  error?: string;
+}
+
+/** Response shape for bulk import endpoints */
+export interface BulkImportResult {
+  summary: { total: number; succeeded: number; failed: number };
+  results: BulkImportRowResult[];
+}

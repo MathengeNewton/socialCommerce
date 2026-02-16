@@ -136,7 +136,12 @@ export default function ProductDetailPage() {
               <h1 className="text-3xl font-bold text-shop-fg mb-4">{product.title}</h1>
               <div className="mb-6">
                 <p className="text-3xl font-bold text-shop-fg">
-                  {product.currency} {Number(product.listPrice || product.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  {product.currency}{' '}
+                  {(
+                    selectedVariant?.price != null
+                      ? Number(selectedVariant.price)
+                      : Number(product.listPrice || product.price)
+                  ).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </p>
                 {product.priceDisclaimer && (
                   <p className="text-sm text-shop-muted mt-1">{product.priceDisclaimer}</p>
@@ -162,6 +167,11 @@ export default function ProductDetailPage() {
                         disabled={variant.stock === 0}
                       >
                         <div>{variant.name}</div>
+                        {variant.price != null && (
+                          <div className="text-sm font-medium text-shop-fg mt-1">
+                            {product.currency} {Number(variant.price).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </div>
+                        )}
                         <div className="text-xs mt-1">
                           {variant.stock > 0 ? (
                             <span className="text-green-600 dark:text-green-400">{variant.stock} in stock</span>

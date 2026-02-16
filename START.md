@@ -5,7 +5,21 @@
 - Node.js 18+ and pnpm installed
 - Network access to npm registry
 
-## Quick Start
+## One-shot finish (install + infra + migrations)
+
+Run everything in one go: install deps, start postgres/redis/minio, run migrations.
+
+```bash
+pnpm run finish
+```
+
+Options:
+- `pnpm run finish:no-docker` — only `pnpm install` and `prisma generate`; skip starting Docker (use existing `DATABASE_URL` and run `prisma migrate deploy` yourself if needed).
+- `pnpm run finish:seed` — same as `finish` but also run the API seed (admin user, demo data).
+
+After `finish`, start the stack with `pnpm dev` or `docker compose up -d`.
+
+## Quick Start (manual steps)
 
 ### 1. Start Infrastructure Services
 ```bash

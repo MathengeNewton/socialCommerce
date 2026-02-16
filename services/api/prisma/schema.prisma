@@ -209,8 +209,10 @@ model ProductVariant {
   id        String   @id @default(uuid())
   productId String  @map("product_id")
   sku       String
-  name      String   // e.g., "Size: Large, Color: Red"
+  name      String   // e.g., "64GB", "128GB" (storage option)
   stock     Int      @default(0)
+  price     Decimal? @db.Decimal(10, 2)  // optional: price for this variant (storage); when set, overrides product listPrice
+  currency  String?  @db.VarChar(3)      // optional: e.g. "KES"; when null, use product.currency
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

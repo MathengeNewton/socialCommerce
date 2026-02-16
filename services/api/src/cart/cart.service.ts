@@ -105,15 +105,21 @@ export class CartService {
       id: cart.id,
       cartToken: cart.cartToken,
       tenantId: cart.tenantId,
-      items: cart.items.map((item) => ({
-        id: item.id,
-        productId: item.productId,
-        variantId: item.variantId,
-        quantity: item.quantity,
-        product: item.product,
-        variant: item.variant,
-        price: Number(item.product.listPrice ?? item.product.price),
-      })),
+      items: cart.items.map((item) => {
+        const linePrice =
+          item.variant?.price != null
+            ? Number(item.variant.price)
+            : Number(item.product.listPrice ?? item.product.price);
+        return {
+          id: item.id,
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+          product: item.product,
+          variant: item.variant,
+          price: linePrice,
+        };
+      }),
     };
   }
 
@@ -249,8 +255,12 @@ export class CartService {
         throw new Error(`Product ${item.productId} is not available`);
       }
 
+      const variant = item.variantId
+        ? (product.variants as Array<{ id: string; price?: unknown; stock: number }> | undefined)?.find(
+            (v) => v.id === item.variantId,
+          )
+        : undefined;
       if (item.variantId) {
-        const variant = product.variants?.find((v) => v.id === item.variantId);
         if (!variant) {
           throw new Error(`Variant ${item.variantId} not found`);
         }
@@ -259,7 +269,10 @@ export class CartService {
         }
       }
 
-      const price = Number(product.listPrice ?? product.price);
+      const price =
+        variant?.price != null
+          ? Number(variant.price)
+          : Number(product.listPrice ?? product.price);
       validatedItems.push({
         productId: item.productId,
         variantId: item.variantId || null,
