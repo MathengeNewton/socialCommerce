@@ -218,12 +218,11 @@ export default function ProductDetailPage() {
                         type="button"
                         key={variant.id}
                         onClick={() => setSelectedVariant(variant)}
-                        className={`p-4 border-2 rounded-xl font-semibold transition-all ${
+                        className={`p-4 border-2 rounded-xl font-semibold transition-all cursor-pointer ${
                           selectedVariant?.id === variant.id
                             ? 'border-shop-accent bg-shop-accent/20 text-shop-accent'
                             : 'border-shop-border hover:border-shop-muted text-shop-fg'
-                        } ${variant.stock === 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                        disabled={variant.stock === 0}
+                        } ${variant.stock === 0 ? 'opacity-90' : ''}`}
                       >
                         <div>{variant.name}</div>
                         {variant.price != null && (
