@@ -46,6 +46,10 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
+/* Hero row: allow vertical overflow so expanded card is not clipped at top */
+.horizontal-scroll.hero-scroll {
+  overflow-y: visible;
+}
 .horizontal-scroll::-webkit-scrollbar {
   height: 6px;
 }

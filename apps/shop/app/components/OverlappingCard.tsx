@@ -93,12 +93,12 @@ export default function OverlappingCard({ product, size, isSelected, onSelect, o
       className={`
         relative shrink-0 flex flex-col bg-shop-card rounded-xl border overflow-hidden
         transition-all duration-200 h-full
-        ${isSelected && !overlayMode ? 'border-shop-accent ring-2 ring-shop-accent scale-105 z-20 shadow-xl' : isSelected ? 'border-shop-accent ring-2 ring-shop-accent z-20 shadow-xl' : 'border-shop-border hover:border-shop-muted hover:shadow-lg'}
+        ${isSelected && !overlayMode ? 'border-shop-accent ring-2 ring-shop-accent scale-[1.02] z-20 shadow-lg' : isSelected ? 'border-shop-accent ring-2 ring-shop-accent z-20 shadow-lg' : 'border-shop-border hover:border-shop-muted hover:shadow-lg'}
         ${overlayMode ? 'max-h-[92dvh]' : isSelectedHero ? 'max-h-[85vh]' : ''}
       `}
       style={{
         width: cardWidth,
-        minHeight: overlayMode ? 420 : isSelectedHero ? 520 : minHeight,
+        minHeight: overlayMode ? 420 : isSelectedHero ? 436 : minHeight,
       }}
     >
       <div className={`w-full flex-1 flex flex-col min-h-0 ${isSelectedHero ? 'overflow-y-auto' : ''}`}>

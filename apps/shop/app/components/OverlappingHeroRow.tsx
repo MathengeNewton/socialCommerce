@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import OverlappingCard from './OverlappingCard';
 
 type Product = {
@@ -16,25 +15,22 @@ type Product = {
 };
 
 const CARD_WIDTH = 300;
+const CARD_WIDTH_SELECTED = 316; // just a few pixels wider when selected
 const OVERLAP = 120;
+const CARD_HEIGHT = 420;
+const CARD_HEIGHT_SELECTED = 436; // a few pixels up/down when selected
 
 export default function OverlappingHeroRow({ products }: { products: Product[] }) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const sectionRef = useRef<HTMLElement>(null);
-  const overlayRef = useRef<HTMLDivElement>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
+  const selectedRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setSelectedId(null);
     };
     const handleClickOutside = (e: MouseEvent) => {
-      const target = e.target as Node;
-      const inSection = sectionRef.current?.contains(target);
-      const inOverlay = overlayRef.current?.contains(target);
-      if (!inSection && !inOverlay) setSelectedId(null);
+      if (sectionRef.current && !sectionRef.current.contains(e.target as Node)) setSelectedId(null);
     };
     window.addEventListener('keydown', handleEscape);
     document.addEventListener('click', handleClickOutside);
@@ -44,80 +40,57 @@ export default function OverlappingHeroRow({ products }: { products: Product[] }
     };
   }, []);
 
-  const selectedProduct = selectedId ? products.find((p) => p.id === selectedId) : null;
-
-  // Lock body scroll when overlay is open so no page scrollbars
+  // Scroll selected card into view so the top isn't clipped when it grows
   useEffect(() => {
-    if (!selectedId) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    if (!selectedId || !selectedRef.current) return;
+    const t = requestAnimationFrame(() => {
+      selectedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'center' });
+    });
+    return () => cancelAnimationFrame(t);
   }, [selectedId]);
 
   if (products.length === 0) return null;
 
-  const overlayEl =
-    mounted && selectedProduct ? (
-      <div
-        ref={overlayRef}
-        className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-5 bg-black/50 overflow-hidden"
-        style={{ height: '100dvh', width: '100vw' }}
-        onClick={() => setSelectedId(null)}
-        role="presentation"
-      >
-        <div
-          className="flex items-center justify-center overflow-hidden rounded-xl w-full max-h-[92dvh] max-w-[420px]"
-          style={{ maxWidth: 'min(420px, calc(100vw - 2rem))' }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <OverlappingCard
-            product={selectedProduct}
-            size="hero"
-            isSelected
-            onSelect={() => {}}
-            onDeselect={() => setSelectedId(null)}
-            width={400}
-            overlayMode
-          />
-        </div>
-      </div>
-    ) : null;
-
   return (
-    <>
-      <section ref={sectionRef} className="min-h-[70vh] flex flex-col justify-center pt-10 sm:pt-14 pb-12 sm:pb-16 overflow-visible" aria-label="Featured products">
-        <div
-          className="horizontal-scroll overflow-x-auto overflow-y-visible scroll-smooth pb-2 snap-x snap-mandatory"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-stretch pl-2 pr-2 sm:pl-4 sm:pr-4">
-            {products.map((product, index) => (
+    <section ref={sectionRef} className="min-h-[70vh] flex flex-col justify-center pt-10 sm:pt-14 pb-12 sm:pb-16 w-full overflow-visible" aria-label="Featured products">
+      <p className="text-xs font-medium uppercase tracking-wider text-shop-muted pl-2 sm:pl-4 mb-2">
+        Featured Products
+      </p>
+      <div
+        className="horizontal-scroll hero-scroll overflow-x-auto scroll-smooth pb-2 snap-x snap-mandatory w-full min-h-0"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* items-start: only the selected card grows in height; others stay fixed (no stretch) */}
+        <div className="flex items-start pl-2 pr-2 sm:pl-4 sm:pr-4 gap-0">
+          {products.map((product, index) => {
+            const isSelected = selectedId === product.id;
+            const w = isSelected ? CARD_WIDTH_SELECTED : CARD_WIDTH;
+            return (
               <div
                 key={product.id}
-                className="shrink-0 snap-start"
+                ref={isSelected ? selectedRef : undefined}
+                className="shrink-0 snap-start transition-[margin,width] duration-300 ease-out flex items-start"
                 style={{
                   marginLeft: index === 0 ? 0 : -OVERLAP,
-                  width: CARD_WIDTH,
+                  width: w,
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="h-full min-h-[420px]">
+                <div className="w-full" style={{ minHeight: isSelected ? CARD_HEIGHT_SELECTED : CARD_HEIGHT }}>
                   <OverlappingCard
                     product={product}
                     size="hero"
-                    isSelected={false}
+                    isSelected={isSelected}
                     onSelect={() => setSelectedId(product.id)}
                     onDeselect={() => setSelectedId(null)}
+                    width={isSelected ? CARD_WIDTH_SELECTED - 4 : undefined}
                   />
                 </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      </section>
-      {mounted && overlayEl ? createPortal(overlayEl, document.body) : null}
-    </>
+      </div>
+    </section>
   );
 }
