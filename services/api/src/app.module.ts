@@ -19,6 +19,7 @@ import { ClientsModule } from './clients/clients.module';
 import { BillingModule } from './billing/billing.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { MessagesModule } from './messages/messages.module';
 import { UsersModule } from './users/users.module';
 import { AuditModule } from './audit/audit.module';
 import { CategoriesModule } from './categories/categories.module';
@@ -54,6 +55,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     PostsModule,
     PublishingModule,
     DashboardModule,
+    MessagesModule,
     UsersModule,
     CategoriesModule,
   ],

@@ -6,14 +6,25 @@ export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
   async getStats(tenantId: string) {
-    const [products, orders, posts, integrations, clients] = await Promise.all([
-      this.prisma.product.count({ where: { tenantId } }),
-      this.prisma.order.count({ where: { tenantId } }),
-      this.prisma.post.count({ where: { tenantId } }),
-      this.prisma.integration.count({ where: { tenantId } }),
-      this.prisma.client.count({ where: { tenantId } }),
-    ]);
-    return { products, orders, posts, integrations, clients };
+    const [products, orders, posts, integrations, clients, messagesUnread] =
+      await Promise.all([
+        this.prisma.product.count({ where: { tenantId } }),
+        this.prisma.order.count({ where: { tenantId } }),
+        this.prisma.post.count({ where: { tenantId } }),
+        this.prisma.integration.count({ where: { tenantId } }),
+        this.prisma.client.count({ where: { tenantId } }),
+        this.prisma.contactMessage.count({
+          where: { tenantId, readAt: null },
+        }),
+      ]);
+    return {
+      products,
+      orders,
+      posts,
+      integrations,
+      clients,
+      messagesUnread,
+    };
   }
 
   async getActivity(tenantId: string, limit = 15) {

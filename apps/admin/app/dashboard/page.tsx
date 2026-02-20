@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AdminNav from '../components/AdminNav';
 
-type Stats = { products: number; orders: number; posts: number; integrations: number; clients: number };
+type Stats = { products: number; orders: number; posts: number; integrations: number; clients: number; messagesUnread?: number };
 type ActivityItem = { type: 'post' | 'client' | 'order'; id: string; label: string; createdAt: string };
 
 export default function DashboardPage() {
@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const apiUrl = useMemo(() => process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3004', []);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<Stats>({ products: 0, orders: 0, posts: 0, integrations: 0, clients: 0 });
+  const [stats, setStats] = useState<Stats>({ products: 0, orders: 0, posts: 0, integrations: 0, clients: 0, messagesUnread: 0 });
   const [activity, setActivity] = useState<ActivityItem[]>([]);
 
   useEffect(() => {
@@ -91,6 +91,7 @@ export default function DashboardPage() {
     { title: 'Shop', href: process.env.NEXT_PUBLIC_SHOP_URL || 'http://localhost:3003', icon: '🛍️', external: true },
     { title: 'Catalog', href: '/catalog', icon: '📦' },
     { title: 'Orders', href: '/orders', icon: '🛒' },
+    { title: 'Messages', href: '/messages', icon: '✉️', badge: stats.messagesUnread ?? 0 },
     { title: 'Posts', href: '/posts', icon: '📝' },
     { title: 'Calendar', href: '/posts/calendar', icon: '📅' },
     ...(isAdmin ? [{ title: 'Clients', href: '/clients', icon: '👥' }] : []),
@@ -133,10 +134,15 @@ export default function DashboardPage() {
                 href={action.href}
                 target={action.external ? '_blank' : undefined}
                 rel={action.external ? 'noopener noreferrer' : undefined}
-                className="flex items-center gap-3 bg-white rounded-xl border border-slate-200/80 px-4 py-3.5 shadow-sm hover:border-slate-300 hover:shadow transition-all"
+                className="relative flex items-center gap-3 bg-white rounded-xl border border-slate-200/80 px-4 py-3.5 shadow-sm hover:border-slate-300 hover:shadow transition-all"
               >
                 <span className="text-lg">{action.icon}</span>
                 <span className="text-sm font-medium text-slate-700">{action.title}</span>
+                {'badge' in action && (action.badge as number) > 0 && (
+                  <span className="absolute top-2 right-2 min-w-[18px] h-[18px] px-1.5 bg-red-500 text-white text-xs font-semibold rounded-full flex items-center justify-center">
+                    {(action.badge as number) > 99 ? '99+' : action.badge}
+                  </span>
+                )}
               </Link>
             ))}
           </div>
