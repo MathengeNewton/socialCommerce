@@ -1,6 +1,8 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import ThemeToggle from './ThemeToggle';
 import { useCart } from '../context/CartContext';
 
@@ -11,29 +13,53 @@ type ShopHeaderProps = {
 
 export default function ShopHeader({ categories = [], currentCategory }: ShopHeaderProps) {
   const { itemCount } = useCart();
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    router.push(q ? `/products?q=${encodeURIComponent(q)}` : '/products');
+  };
 
   return (
     <header className="bg-shop-card border-b border-shop-border sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          <Link href="/" className="flex items-center gap-2 text-xl font-bold text-shop-fg hover:opacity-90 transition-opacity">
+        <div className="flex items-center justify-between h-16 gap-3">
+          <Link href="/" className="flex items-center gap-2 text-xl font-bold text-shop-fg hover:opacity-90 transition-opacity shrink-0">
             hhourssop
           </Link>
 
-          <nav className="flex items-center gap-1 sm:gap-4">
+          <form onSubmit={handleSearch} className="hidden sm:flex flex-1 max-w-xs min-w-0">
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search…"
+              className="w-full px-3 py-2 rounded-lg bg-shop-bg border border-shop-border text-shop-fg placeholder-shop-muted text-sm focus:outline-none focus:ring-2 focus:ring-shop-accent focus:border-transparent"
+              aria-label="Search products"
+            />
+          </form>
+
+          <nav className="flex items-center gap-1 sm:gap-3 shrink-0">
+            <Link
+              href="/"
+              className="px-2 sm:px-3 py-2 rounded-lg text-sm font-medium text-shop-fg hover:bg-shop-border/50 transition-colors"
+            >
+              Home
+            </Link>
             <Link
               href="/about"
-              className="px-3 py-2 rounded-lg text-sm font-medium text-shop-fg hover:bg-shop-border/50 transition-colors"
+              className="px-2 sm:px-3 py-2 rounded-lg text-sm font-medium text-shop-fg hover:bg-shop-border/50 transition-colors"
             >
-              About us
+              About
             </Link>
             <Link
               href="/contact"
-              className="px-3 py-2 rounded-lg text-sm font-medium text-shop-fg hover:bg-shop-border/50 transition-colors"
+              className="hidden sm:block px-3 py-2 rounded-lg text-sm font-medium text-shop-fg hover:bg-shop-border/50 transition-colors"
             >
-              Contact us
+              Contact
             </Link>
-            <ThemeToggle />
             <Link
               href="/cart"
               className="relative p-2 text-shop-fg hover:bg-shop-border/50 rounded-lg transition-colors"
@@ -45,8 +71,20 @@ export default function ShopHeader({ categories = [], currentCategory }: ShopHea
                 {itemCount}
               </span>
             </Link>
+            <ThemeToggle />
           </nav>
         </div>
+        {/* Mobile search - full width below nav when needed */}
+        <form onSubmit={handleSearch} className="sm:hidden pb-3">
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search products…"
+            className="w-full px-3 py-2 rounded-lg bg-shop-bg border border-shop-border text-shop-fg placeholder-shop-muted text-sm focus:outline-none focus:ring-2 focus:ring-shop-accent"
+            aria-label="Search products"
+          />
+        </form>
       </div>
     </header>
   );

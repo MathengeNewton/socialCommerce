@@ -12,7 +12,13 @@ type OrderConfirmation = {
   currency: string;
   customerName: string;
   createdAt: string;
-  items: { productName: string; quantity: number; price: number }[];
+  items: {
+    productName: string;
+    variantName?: string | null;
+    variantSku?: string | null;
+    quantity: number;
+    price: number;
+  }[];
 };
 
 export default function OrderConfirmationPage() {
@@ -132,7 +138,9 @@ export default function OrderConfirmationPage() {
               {order.items.map((item, i) => (
                 <li key={i} className="flex justify-between text-sm">
                   <span className="text-shop-fg">
-                    {item.productName} × {item.quantity}
+                    {item.productName}
+                    {item.variantName ? ` — ${item.variantName}` : ''}
+                    {item.variantSku ? ` (${item.variantSku})` : ''} × {item.quantity}
                   </span>
                   <span className="font-medium text-shop-fg">
                     {order.currency} {(item.price * item.quantity).toFixed(2)}

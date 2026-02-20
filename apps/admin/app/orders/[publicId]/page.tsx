@@ -131,7 +131,11 @@ export default function OrderDetailPage() {
             <ul className="space-y-2">
               {order.items?.map((item: any, i: number) => (
                 <li key={i} className="flex justify-between text-sm">
-                  <span className="text-slate-700">{item.product?.title ?? 'Product'} × {item.quantity}</span>
+                  <span className="text-slate-700">
+                    {item.product?.title ?? 'Product'}
+                    {item.variant ? ` — ${item.variant.name}` : ''}
+                    {item.variant?.sku ? ` (${item.variant.sku})` : ''} × {item.quantity}
+                  </span>
                   <span className="text-slate-900">{order.currency} {Number(item.price * item.quantity).toFixed(2)}</span>
                 </li>
               ))}

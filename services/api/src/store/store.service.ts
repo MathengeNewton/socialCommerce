@@ -163,6 +163,7 @@ export class StoreService {
         items: {
           include: {
             product: true,
+            variant: true,
           },
         },
       },
@@ -181,6 +182,8 @@ export class StoreService {
       createdAt: order.createdAt,
       items: order.items.map((item) => ({
         productName: item.product?.title ?? 'Unknown',
+        variantName: item.variant?.name ?? null,
+        variantSku: item.variant?.sku ?? null,
         quantity: item.quantity,
         price: Number(item.price),
       })),
