@@ -11,6 +11,7 @@ if [ -n "$ZOD_PATH" ] && [ ! -e /app/packages/shared/node_modules/zod ]; then
 fi
 
 cd /app/services/api
-pnpm exec prisma generate
+# Regenerate Prisma client from current schema (important when prisma dir is volume-mounted)
+pnpm exec prisma generate --schema=./prisma/schema.prisma
 pnpm exec prisma migrate deploy
 exec npx ts-node-dev --respawn --transpile-only src/main.ts

@@ -612,7 +612,7 @@ model ContactMessage {
   phone     String
   message   String    @db.Text
   readAt    DateTime? @map("read_at")
-  createdAt DateTime  @default(now())
+  createdAt DateTime  @default(now()) @map("created_at")
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
