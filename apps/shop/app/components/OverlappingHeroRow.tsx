@@ -52,10 +52,19 @@ export default function OverlappingHeroRow({ products }: { products: Product[] }
   if (products.length === 0) return null;
 
   return (
-    <section ref={sectionRef} className="min-h-[70vh] flex flex-col justify-center pt-10 sm:pt-14 pb-12 sm:pb-16 w-full overflow-visible" aria-label="Featured products">
-      <p className="text-xs font-medium uppercase tracking-wider text-shop-muted pl-2 sm:pl-4 mb-2">
-        Featured Products
-      </p>
+    <section
+      ref={sectionRef}
+      className="w-full overflow-visible rounded-[28px] border border-shop-border bg-shop-card/80 px-0 py-8 sm:py-10"
+      aria-label="Featured inventory"
+    >
+      <div className="mb-5 px-4 sm:px-6">
+        <p className="text-xs font-medium uppercase tracking-[0.24em] text-shop-muted">
+          Featured inventory
+        </p>
+        <h2 className="mt-2 text-2xl font-semibold text-shop-fg sm:text-3xl">
+          Explore the picks worth highlighting right now.
+        </h2>
+      </div>
       <div
         className="horizontal-scroll hero-scroll overflow-x-auto scroll-smooth pb-2 snap-x snap-mandatory w-full min-h-0"
         onClick={(e) => e.stopPropagation()}

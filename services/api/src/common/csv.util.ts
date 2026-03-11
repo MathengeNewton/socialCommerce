@@ -2,6 +2,24 @@
  * Parse a CSV buffer to an array of row objects (first line = headers).
  * Handles quoted fields and trim.
  */
+export function normalizeCsvKey(value: string): string {
+  return value
+    .replace(/^\uFEFF/, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+}
+
+export function getCsvValue(row: Record<string, string>, ...aliases: string[]): string {
+  for (const alias of aliases) {
+    const normalizedAlias = normalizeCsvKey(alias);
+    if (normalizedAlias in row) {
+      return row[normalizedAlias] ?? '';
+    }
+  }
+  return '';
+}
+
 export function parseCsvToRows(buffer: Buffer): { headers: string[]; rows: Record<string, string>[] } {
   const text = buffer.toString('utf8').trim();
   if (!text) return { headers: [], rows: [] };
@@ -29,6 +47,9 @@ export function parseCsvToRows(buffer: Buffer): { headers: string[]; rows: Recor
           }
         }
         out.push(val.trim());
+        if (line[i] === ',') {
+          i += 1;
+        }
       } else {
         const comma = line.indexOf(',', i);
         const segment = (comma === -1 ? line.slice(i) : line.slice(i, comma)).trim();
@@ -39,7 +60,7 @@ export function parseCsvToRows(buffer: Buffer): { headers: string[]; rows: Recor
     return out;
   };
 
-  const headers = parseLine(lines[0]).map((h) => h.trim().toLowerCase());
+  const headers = parseLine(lines[0]).map((h) => normalizeCsvKey(h));
   const rows: Record<string, string>[] = [];
   for (let r = 1; r < lines.length; r++) {
     const values = parseLine(lines[r]);

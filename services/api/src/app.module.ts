@@ -24,6 +24,8 @@ import { UsersModule } from './users/users.module';
 import { AuditModule } from './audit/audit.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ServicePackagesModule } from './service-packages/service-packages.module';
+import { StorefrontSettingsModule } from './storefront-settings/storefront-settings.module';
 
 @Module({
   imports: [
@@ -58,6 +60,8 @@ import { ScheduleModule } from '@nestjs/schedule';
     MessagesModule,
     UsersModule,
     CategoriesModule,
+    ServicePackagesModule,
+    StorefrontSettingsModule,
   ],
 })
 export class AppModule implements NestModule {

@@ -10,7 +10,7 @@ export default function ShopFooter() {
           <div>
             <h3 className="text-lg font-bold text-shop-fg mb-3">hhourssop</h3>
             <p className="text-sm text-shop-muted">
-              Your trusted shop for quality products.
+              Social media management packages and curated products, presented in one clean storefront.
             </p>
           </div>
           <div>
@@ -19,6 +19,16 @@ export default function ShopFooter() {
               <li>
                 <Link href="/" className="text-sm text-shop-muted hover:text-shop-fg transition-colors">
                   Home
+                </Link>
+              </li>
+              <li>
+                <Link href="/products" className="text-sm text-shop-muted hover:text-shop-fg transition-colors">
+                  Products
+                </Link>
+              </li>
+              <li>
+                <Link href="/#packages" className="text-sm text-shop-muted hover:text-shop-fg transition-colors">
+                  Packages
                 </Link>
               </li>
               <li>
@@ -41,22 +51,12 @@ export default function ShopFooter() {
                   Privacy Policy
                 </Link>
               </li>
-              <li>
-                <Link href="/categories" className="text-sm text-shop-muted hover:text-shop-fg transition-colors">
-                  Explore categories
-                </Link>
-              </li>
-              <li>
-                <Link href="/cart" className="text-sm text-shop-muted hover:text-shop-fg transition-colors">
-                  Cart
-                </Link>
-              </li>
             </ul>
           </div>
           <div>
             <h3 className="text-sm font-semibold text-shop-fg mb-3">Contact</h3>
             <p className="text-sm text-shop-muted mb-2">
-              Questions? We&apos;re here to help.
+              Need a package, a quote, or help choosing a featured product?
             </p>
             <Link href="/contact" className="text-sm text-shop-accent hover:underline">
               Send us a message
@@ -64,7 +64,15 @@ export default function ShopFooter() {
           </div>
         </div>
         <div className="mt-8 pt-8 border-t border-shop-border text-center text-sm text-shop-muted">
-          © {new Date().getFullYear()} hhourssop. All rights reserved.
+          © {new Date().getFullYear()} hhourssop. All rights reserved. Built at{' '}
+          <a
+            href="https://mangoseasonlabs.co.ke"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline font-medium text-shop-fg transition-opacity hover:opacity-80"
+          >
+            Mango Season Labs<sup className="ml-0.5 text-[10px]">tm</sup>
+          </a>
         </div>
       </div>
     </footer>

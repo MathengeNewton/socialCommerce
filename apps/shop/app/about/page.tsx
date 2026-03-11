@@ -13,27 +13,26 @@ export default function AboutPage() {
 
         <div className="prose prose-invert max-w-none space-y-6 text-shop-muted">
           <p className="text-lg leading-relaxed">
-            hhourssop is Kenya&apos;s largest product marketplace, connecting buyers with trusted sellers
-            across a wide range of categories. We believe in making shopping simple, transparent, and
-            accessible for everyone.
+            hhourssop helps brands stay visible online through practical social media management,
+            while also curating featured electronics and lifestyle products for customers who want a
+            simpler buying experience.
           </p>
 
           <p className="leading-relaxed">
-            Founded with a mission to transform how Kenyans discover and purchase products online,
-            we curate a diverse selection of quality items—from electronics and home appliances to
-            fashion, beauty, and everyday essentials. Every product on our platform is vetted to
-            ensure you get genuine value.
+            Our service side is built for businesses that need consistent content, publishing support,
+            and a cleaner way to communicate their value online. We package that work into clear
+            monthly retainers so clients know exactly what they are getting.
           </p>
 
           <p className="leading-relaxed">
-            Our team is passionate about customer experience. We work closely with suppliers and
-            partners to bring you competitive prices, reliable delivery, and responsive support.
-            Whether you&apos;re shopping for yourself or your business, we&apos;re here to help.
+            On the commerce side, we keep the storefront intentionally focused. Instead of overwhelming
+            visitors with clutter, we highlight featured products and make it easy to browse, view,
+            and purchase without friction.
           </p>
 
           <p className="leading-relaxed">
-            Thank you for choosing hhourssop. We&apos;re excited to serve you and look forward to
-            growing together.
+            Whether you need help managing your online presence or want to shop curated products,
+            hhourssop is designed to make both experiences feel straightforward and polished.
           </p>
         </div>
 

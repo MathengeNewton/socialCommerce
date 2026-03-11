@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import AdminNav from '../components/AdminNav';
+import { BulkUploadModal } from '../components/BulkUploadModal';
 import DataTable, { DataTableColumn } from '../components/DataTable';
 import { BulkResultModal } from '../components/BulkResultModal';
 import { useToast } from '../components/ToastContext';
@@ -25,6 +26,8 @@ type Product = {
   currency: string;
   slug: string;
   status: string;
+  isFeatured?: boolean;
+  featuredOrder?: number;
   supplier?: Supplier;
   category?: Category | null;
   images?: ProductImage[];
@@ -45,9 +48,16 @@ const defaultProduct = {
   listPrice: 0,
   priceDisclaimer: '',
   imageIds: [] as string[],
+  isFeatured: false,
+  featuredOrder: 0,
   variantName: '' as string,
   variantOptions: [] as VariantOption[],
 };
+
+const productBulkUploadSampleCsv = [
+  'supplier_name,category,title,description,slug,currency,status,supply_price,min_sell_price,list_price,price_disclaimer,variant_name,variant_options,variant_prices,variant_stocks',
+  '"Demo Supplier","Phones","iPhone 15 Pro","256GB flagship phone","iphone-15-pro","KES","published","120000","135000","149999","Slightly negotiable","Storage","128GB,256GB,512GB","149999,169999,189999","4,3,1"',
+].join('\n');
 
 function CatalogContent() {
   const router = useRouter();
@@ -84,6 +94,7 @@ function CatalogContent() {
   const [imageUploading, setImageUploading] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ summary: { total: number; succeeded: number; failed: number }; results: { rowIndex: number; success: boolean; id?: string; error?: string }[] } | null>(null);
   const [bulkUploading, setBulkUploading] = useState(false);
+  const [showProductsBulkUpload, setShowProductsBulkUpload] = useState(false);
   const { toast } = useToast();
   const { confirm } = useConfirm();
 
@@ -249,9 +260,7 @@ function CatalogContent() {
     }
   };
 
-  const handleProductsBulkFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
+  const handleProductsBulkUpload = async (file: File) => {
     if (!file || bulkUploading) return;
     const headers = authHeaders();
     if (!headers) return;
@@ -263,6 +272,7 @@ function CatalogContent() {
       const res = await fetch(`${apiUrl}/products/bulk/upload`, { method: 'POST', headers, body: formData });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || 'Upload failed');
+      setShowProductsBulkUpload(false);
       setBulkResult(data);
       await fetchProducts();
       toast(`Products import complete: ${data.summary?.succeeded ?? 0} succeeded, ${data.summary?.failed ?? 0} failed`, data.summary?.failed ? 'info' : 'success');
@@ -328,6 +338,8 @@ function CatalogContent() {
       listPrice: num(p.listPrice ?? p.price),
       priceDisclaimer: (p as Product & { priceDisclaimer?: string }).priceDisclaimer ?? '',
       imageIds: sorted.map((img) => img.mediaId),
+      isFeatured: Boolean(p.isFeatured),
+      featuredOrder: p.featuredOrder ?? 0,
       variantName,
       variantOptions,
     });
@@ -365,6 +377,8 @@ function CatalogContent() {
       price: Number(productForm.listPrice),
       priceDisclaimer: productForm.priceDisclaimer?.trim() || undefined,
       imageIds: productForm.imageIds?.length ? productForm.imageIds : undefined,
+      isFeatured: Boolean(productForm.isFeatured),
+      featuredOrder: productForm.isFeatured ? Number(productForm.featuredOrder) || 0 : 0,
       variantName: productForm.variantName?.trim() || undefined,
       variantOptions: variantOptionsPayload,
     };
@@ -451,16 +465,31 @@ function CatalogContent() {
         _supplierName: p.supplier?.name ?? '',
         _priceStr: priceStr,
         _variantCount: variants.length,
+        _featuredLabel: p.isFeatured ? `Yes (${p.featuredOrder ?? 0})` : 'No',
       };
     }),
     [products]
   );
 
-  const productColumns: DataTableColumn<Product & { _categoryName: string; _supplierName: string; _priceStr: string; _variantCount: number }>[] = [
+  const productColumns: DataTableColumn<Product & { _categoryName: string; _supplierName: string; _priceStr: string; _variantCount: number; _featuredLabel: string }>[] = [
     { key: 'title', label: 'Product', sortable: true, exportValue: (r) => r.title, render: (r) => <><div className="font-medium">{r.title}</div><div className="text-xs text-gray-500">{r.slug}</div></> },
     { key: '_categoryName', label: 'Category', sortable: true, exportValue: (r) => r._categoryName || '—', render: (r) => r._categoryName || '—' },
     { key: '_supplierName', label: 'Supplier', sortable: true, exportValue: (r) => r._supplierName, render: (r) => r._supplierName || '—' },
     { key: '_priceStr', label: 'Price', sortable: true, exportValue: (r) => r._priceStr, render: (r) => <span className="whitespace-nowrap">{r._priceStr}</span> },
+    {
+      key: '_featuredLabel',
+      label: 'Featured',
+      sortable: true,
+      exportValue: (r) => r._featuredLabel,
+      render: (r) =>
+        r.isFeatured ? (
+          <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800">
+            Featured #{r.featuredOrder ?? 0}
+          </span>
+        ) : (
+          <span className="text-gray-400">No</span>
+        ),
+    },
     { key: 'status', label: 'Status', sortable: true, exportValue: (r) => r.status, render: (r) => <span className={`px-2 py-1 rounded-full text-xs font-medium ${r.status === 'published' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-700'}`}>{r.status}</span> },
     {
       key: 'actions',
@@ -564,10 +593,14 @@ function CatalogContent() {
                 }
                 actions={
                   <span className="flex items-center gap-2">
-                    <input type="file" accept=".csv" className="hidden" id="products-bulk-file" onChange={handleProductsBulkFile} disabled={bulkUploading} />
-                    <label htmlFor="products-bulk-file" className={`inline-flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg font-medium hover:bg-gray-50 cursor-pointer ${bulkUploading ? 'opacity-50 pointer-events-none' : ''}`}>
-                      {bulkUploading ? 'Uploading…' : 'Bulk upload (CSV)'}
-                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowProductsBulkUpload(true)}
+                      disabled={bulkUploading}
+                      className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 font-medium transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {bulkUploading ? 'Uploading…' : 'Add Bulk Products'}
+                    </button>
                     <button onClick={openAddProduct} className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
                       Add Product
@@ -731,6 +764,45 @@ function CatalogContent() {
                   <input type="number" step="0.01" min="0" value={productForm.listPrice} onChange={(e) => setProductForm((f) => ({ ...f, listPrice: parseFloat(e.target.value) || 0 }))} className="w-full px-3 py-2 border border-gray-300 rounded-lg" />
                 </div>
               </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Homepage featuring</p>
+                    <p className="mt-1 text-xs text-gray-600">
+                      Flag products you want on the homepage and control the display order.
+                    </p>
+                  </div>
+                  <label className="inline-flex items-center gap-2 text-sm font-medium text-gray-800">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(productForm.isFeatured)}
+                      onChange={(e) =>
+                        setProductForm((f) => ({
+                          ...f,
+                          isFeatured: e.target.checked,
+                          featuredOrder: e.target.checked ? f.featuredOrder : 0,
+                        }))
+                      }
+                      className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    Feature on homepage
+                  </label>
+                </div>
+
+                <div className="mt-4 max-w-xs">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Featured order</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={productForm.featuredOrder}
+                    onChange={(e) =>
+                      setProductForm((f) => ({ ...f, featuredOrder: parseInt(e.target.value, 10) || 0 }))
+                    }
+                    disabled={!productForm.isFeatured}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 disabled:bg-gray-100 disabled:text-gray-400"
+                  />
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Variants (e.g. storage options)</label>
                 <p className="text-xs text-gray-500 mb-2">Add options like 64GB, 128GB with price and stock per variant. Leave empty for no variants.</p>
@@ -875,6 +947,18 @@ function CatalogContent() {
           summary={bulkResult.summary}
           results={bulkResult.results}
           onClose={() => setBulkResult(null)}
+        />
+      )}
+
+      {showProductsBulkUpload && (
+        <BulkUploadModal
+          title="Bulk upload products"
+          description="Upload a CSV with product details. Category names are matched intelligently, and if no close category exists the system creates it automatically."
+          sampleFilename="products-bulk-upload-sample.csv"
+          sampleCsv={productBulkUploadSampleCsv}
+          uploading={bulkUploading}
+          onClose={() => setShowProductsBulkUpload(false)}
+          onUpload={handleProductsBulkUpload}
         />
       )}
     </div>

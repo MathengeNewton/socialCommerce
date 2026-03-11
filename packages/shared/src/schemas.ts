@@ -37,6 +37,8 @@ const productBaseSchema = z.object({
   minSellPrice: z.number().positive(),
   listPrice: z.number().positive(),
   priceDisclaimer: z.string().max(500).optional(),
+  isFeatured: z.boolean().optional(),
+  featuredOrder: z.number().int().min(0).optional(),
   variantName: z.string().optional(),
   variantOptions: z
     .array(
@@ -73,6 +75,27 @@ export const updateProductSchema = productBaseSchema
       path: ['listPrice'],
     },
   );
+
+// Service package schemas
+const servicePackageBaseSchema = z.object({
+  name: z.string().min(1).max(255),
+  slug: z.string().regex(/^[a-z0-9-]+$/).optional(),
+  shortDescription: z.string().min(1).max(1000),
+  priceLabel: z.string().min(1).max(255),
+  cadence: z.string().max(255).optional(),
+  features: z.array(z.string().min(1).max(255)).min(1).max(12),
+  ctaLabel: z.string().max(80).optional(),
+  isActive: z.boolean().optional(),
+  displayOrder: z.number().int().min(0).optional(),
+});
+
+export const createServicePackageSchema = servicePackageBaseSchema;
+
+export const updateServicePackageSchema = servicePackageBaseSchema.partial();
+
+export const updateStorefrontSettingsSchema = z.object({
+  heroImageMediaId: z.string().uuid().nullable().optional(),
+});
 
 // Media schemas
 export const mediaUploadSchema = z.object({

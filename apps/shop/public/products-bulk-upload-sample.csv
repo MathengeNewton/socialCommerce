@@ -1,0 +1,2 @@
+supplier_name,category,title,description,slug,currency,status,supply_price,min_sell_price,list_price,price_disclaimer,variant_name,variant_options,variant_prices,variant_stocks
+"Demo Supplier","Phones","iPhone 15 Pro","256GB flagship phone","iphone-15-pro","KES","published","120000","135000","149999","Slightly negotiable","Storage","128GB,256GB,512GB","149999,169999,189999","4,3,1"

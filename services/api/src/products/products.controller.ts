@@ -18,7 +18,7 @@ import { ProductsService } from './products.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantGuard } from '../tenant/tenant.guard';
 import { createProductSchema, updateProductSchema } from '@social-commerce/shared';
-import { parseCsvToRows } from '../common/csv.util';
+import { getCsvValue, parseCsvToRows } from '../common/csv.util';
 
 @Controller('products')
 @UseGuards(JwtAuthGuard, TenantGuard)
@@ -35,11 +35,28 @@ export class ProductsController {
   @UseInterceptors(FileInterceptor('file'))
   async bulkUpload(@Request() req, @UploadedFile() file: Express.Multer.File) {
     if (!file?.buffer) throw new BadRequestException('File is required');
+    const isCsv =
+      file.originalname?.toLowerCase().endsWith('.csv') ||
+      file.mimetype === 'text/csv' ||
+      file.mimetype === 'application/vnd.ms-excel';
+    if (!isCsv) throw new BadRequestException('Only CSV files are supported');
     const { rows } = parseCsvToRows(file.buffer);
     const payload = rows.map((r, i) => {
-      const opts = (r.variant_options ?? r.variantoptions ?? '').split(',').map((s: string) => s.trim()).filter(Boolean);
-      const prices = (r.variant_prices ?? r.variantprices ?? '').split(',').map((s: string) => parseFloat(s.trim()) || 0);
-      const stocks = (r.variant_stocks ?? r.variantstocks ?? '').split(',').map((s: string) => parseInt(s.trim(), 10) || 0);
+      const opts = getCsvValue(r, 'variant_options', 'variant options', 'variantOptions')
+        .split(',')
+        .map((s: string) => s.trim())
+        .filter(Boolean);
+      const prices = getCsvValue(r, 'variant_prices', 'variant prices', 'variantPrices')
+        .split(',')
+        .map((s: string) => {
+        const value = s.trim();
+        if (!value) return undefined;
+        const parsed = parseFloat(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
+      });
+      const stocks = getCsvValue(r, 'variant_stocks', 'variant stocks', 'variantStocks')
+        .split(',')
+        .map((s: string) => parseInt(s.trim(), 10) || 0);
       const variantOptions =
         opts.length > 0
           ? opts.map((name: string, idx: number) => ({
@@ -49,17 +66,20 @@ export class ProductsController {
             }))
           : undefined;
       return {
-        supplierId: (r.supplierid ?? r.supplier_id ?? '').trim(),
-        categoryId: (r.categoryid ?? r.category_id ?? '').trim() || null,
-        title: (r.title ?? '').trim() || `Product ${i + 1}`,
-        description: (r.description ?? '').trim(),
-        slug: (r.slug ?? '').trim(),
-        listPrice: parseFloat(r.listprice ?? r.list_price ?? '0') || 0,
-        currency: (r.currency ?? 'KES').trim().slice(0, 3),
-        status: (r.status ?? 'draft').trim(),
-        supplyPrice: parseFloat(r.supplyprice ?? r.supply_price ?? '') || undefined,
-        minSellPrice: parseFloat(r.minsellprice ?? r.min_sell_price ?? '') || undefined,
-        variantName: (r.variantname ?? r.variant_name ?? '').trim() || undefined,
+        supplierId: getCsvValue(r, 'supplier_id', 'supplierId').trim(),
+        supplierName: getCsvValue(r, 'supplier_name', 'supplier name', 'supplierName', 'supplier').trim() || undefined,
+        categoryId: getCsvValue(r, 'category_id', 'categoryId').trim() || null,
+        categoryName: getCsvValue(r, 'category_name', 'category name', 'categoryName', 'category').trim() || undefined,
+        title: getCsvValue(r, 'title').trim() || `Product ${i + 1}`,
+        description: getCsvValue(r, 'description').trim(),
+        slug: getCsvValue(r, 'slug').trim(),
+        listPrice: parseFloat(getCsvValue(r, 'list_price', 'list price', 'listPrice') || '0') || 0,
+        currency: (getCsvValue(r, 'currency') || 'KES').trim().slice(0, 3),
+        status: (getCsvValue(r, 'status') || 'draft').trim(),
+        supplyPrice: parseFloat(getCsvValue(r, 'supply_price', 'supply price', 'supplyPrice') || '') || undefined,
+        minSellPrice: parseFloat(getCsvValue(r, 'min_sell_price', 'min sell price', 'minSellPrice') || '') || undefined,
+        priceDisclaimer: getCsvValue(r, 'price_disclaimer', 'price disclaimer', 'priceDisclaimer').trim() || undefined,
+        variantName: getCsvValue(r, 'variant_name', 'variant name', 'variantName').trim() || undefined,
         variantOptions,
       };
     });

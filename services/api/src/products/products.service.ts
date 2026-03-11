@@ -4,6 +4,110 @@ import { AuditService } from '../audit/audit.service';
 import { createProductSchema, updateProductSchema } from '@social-commerce/shared';
 import type { BulkImportResult, BulkImportRowResult } from '@social-commerce/shared';
 
+type ProductBulkImportRow = {
+  supplierId?: string;
+  supplierName?: string;
+  categoryId?: string | null;
+  categoryName?: string;
+  title: string;
+  description: string;
+  slug: string;
+  listPrice: number;
+  currency?: string;
+  status?: string;
+  supplyPrice?: number;
+  minSellPrice?: number;
+  priceDisclaimer?: string;
+  variantName?: string;
+  variantOptions?: Array<string | { name: string; price?: number; currency?: string; stock?: number }>;
+};
+
+type NamedRecord = {
+  id: string;
+  name: string;
+  slug?: string | null;
+};
+
+const normalizeMatcherValue = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+
+const slugifyValue = (value: string) => normalizeMatcherValue(value).replace(/\s+/g, '-');
+
+const levenshteinDistance = (left: string, right: string) => {
+  if (left === right) return 0;
+  if (!left.length) return right.length;
+  if (!right.length) return left.length;
+
+  const previous = Array.from({ length: right.length + 1 }, (_, index) => index);
+  const current = new Array(right.length + 1).fill(0);
+
+  for (let row = 1; row <= left.length; row++) {
+    current[0] = row;
+    for (let column = 1; column <= right.length; column++) {
+      const substitutionCost = left[row - 1] === right[column - 1] ? 0 : 1;
+      current[column] = Math.min(
+        current[column - 1] + 1,
+        previous[column] + 1,
+        previous[column - 1] + substitutionCost,
+      );
+    }
+    for (let column = 0; column <= right.length; column++) {
+      previous[column] = current[column];
+    }
+  }
+
+  return previous[right.length];
+};
+
+const calculateNameSimilarity = (left: string, right: string) => {
+  if (!left || !right) return 0;
+  if (left === right) return 1;
+  if (left.includes(right) || right.includes(left)) return 0.93;
+
+  const leftTokens = new Set(left.split(' ').filter(Boolean));
+  const rightTokens = new Set(right.split(' ').filter(Boolean));
+  const overlapCount = [...leftTokens].filter((token) => rightTokens.has(token)).length;
+  const tokenScore = overlapCount / Math.max(leftTokens.size, rightTokens.size, 1);
+  const distance = levenshteinDistance(left, right);
+  const distanceScore = 1 - distance / Math.max(left.length, right.length, 1);
+
+  return Math.max(tokenScore, distanceScore);
+};
+
+const findBestRecordMatch = <T extends NamedRecord>(records: T[], rawValue: string, minimumScore = 0.74): T | null => {
+  const normalizedValue = normalizeMatcherValue(rawValue);
+  if (!normalizedValue) return null;
+
+  const exact = records.find((record) => {
+    const normalizedName = normalizeMatcherValue(record.name);
+    const normalizedSlug = record.slug ? normalizeMatcherValue(record.slug) : '';
+    return normalizedName === normalizedValue || normalizedSlug === normalizedValue;
+  });
+  if (exact) return exact;
+
+  let bestMatch: T | null = null;
+  let bestScore = 0;
+  for (const record of records) {
+    const score = Math.max(
+      calculateNameSimilarity(normalizeMatcherValue(record.name), normalizedValue),
+      record.slug ? calculateNameSimilarity(normalizeMatcherValue(record.slug), normalizedValue) : 0,
+    );
+    if (score > bestScore) {
+      bestScore = score;
+      bestMatch = record;
+    }
+  }
+
+  return bestScore >= minimumScore ? bestMatch : null;
+};
+
 @Injectable()
 export class ProductsService {
   constructor(
@@ -59,6 +163,8 @@ export class ProductsService {
         minSellPrice: validated.minSellPrice,
         listPrice: validated.listPrice,
         priceDisclaimer: validated.priceDisclaimer || null,
+        isFeatured: validated.isFeatured ?? false,
+        featuredOrder: validated.featuredOrder ?? 0,
       },
     });
 
@@ -246,6 +352,12 @@ export class ProductsService {
     if (validated.priceDisclaimer !== undefined) {
       updateData.priceDisclaimer = validated.priceDisclaimer || null;
     }
+    if (validated.isFeatured !== undefined) {
+      updateData.isFeatured = validated.isFeatured;
+    }
+    if (validated.featuredOrder !== undefined) {
+      updateData.featuredOrder = validated.featuredOrder;
+    }
     if (validated.categoryId !== undefined) {
       updateData.categoryId = validated.categoryId || null;
     }
@@ -341,43 +453,160 @@ export class ProductsService {
     });
   }
 
+  private async resolveSupplierId(
+    tenantId: string,
+    row: ProductBulkImportRow,
+    suppliers: Array<{ id: string; name: string }>,
+  ) {
+    const supplierId = row.supplierId?.trim();
+    if (supplierId) {
+      const supplier = suppliers.find((item) => item.id === supplierId);
+      if (!supplier) {
+        throw new BadRequestException(`Supplier with id "${supplierId}" not found`);
+      }
+      return supplier.id;
+    }
+
+    const supplierName = row.supplierName?.trim();
+    if (supplierName) {
+      const matchedSupplier = findBestRecordMatch(suppliers, supplierName, 0.8);
+      if (matchedSupplier) {
+        return matchedSupplier.id;
+      }
+      const createdSupplier = await this.createSupplierForImport(tenantId, supplierName);
+      suppliers.push(createdSupplier);
+      return createdSupplier.id;
+    }
+
+    if (suppliers.length === 1) {
+      return suppliers[0].id;
+    }
+
+    throw new BadRequestException('Supplier is required. Provide supplier_id or supplier_name in the CSV.');
+  }
+
+  private async createSupplierForImport(tenantId: string, name: string) {
+    return this.prisma.supplier.create({
+      data: {
+        tenantId,
+        name: name.trim(),
+        phone: 'PENDING-UPDATE',
+        email: null,
+        address: 'Auto-created from bulk product upload. Update supplier details later.',
+      },
+      select: {
+        id: true,
+        name: true,
+      },
+    });
+  }
+
+  private async resolveCategoryId(
+    tenantId: string,
+    row: ProductBulkImportRow,
+    categories: Array<{ id: string; name: string; slug: string }>,
+  ) {
+    const categoryId = row.categoryId?.trim();
+    if (categoryId) {
+      const category = categories.find((item) => item.id === categoryId);
+      if (!category) {
+        throw new BadRequestException(`Category with id "${categoryId}" not found`);
+      }
+      return category.id;
+    }
+
+    const categoryName = row.categoryName?.trim();
+    if (!categoryName) {
+      return null;
+    }
+
+    const matchedCategory = findBestRecordMatch(categories, categoryName, 0.72);
+    if (matchedCategory) {
+      return matchedCategory.id;
+    }
+
+    const createdCategory = await this.createCategoryForImport(tenantId, categoryName);
+    categories.push(createdCategory);
+    return createdCategory.id;
+  }
+
+  private async createCategoryForImport(tenantId: string, name: string) {
+    const slug = await this.buildUniqueCategorySlug(tenantId, name);
+    return this.prisma.productCategory.create({
+      data: {
+        tenantId,
+        name: name.trim(),
+        slug,
+        order: 0,
+      },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+      },
+    });
+  }
+
+  private async buildUniqueCategorySlug(tenantId: string, name: string) {
+    const baseSlug = slugifyValue(name) || 'category';
+    let candidate = baseSlug;
+    let suffix = 2;
+
+    while (
+      await this.prisma.productCategory.findFirst({
+        where: { tenantId, slug: candidate },
+        select: { id: true },
+      })
+    ) {
+      candidate = `${baseSlug}-${suffix}`;
+      suffix += 1;
+    }
+
+    return candidate;
+  }
+
   /** Bulk import: one product per row (with optional variants). Process each row; do not fail whole batch. */
   async bulkImport(
     tenantId: string,
-    rows: Array<{
-      supplierId: string;
-      categoryId?: string | null;
-      title: string;
-      description: string;
-      slug: string;
-      listPrice: number;
-      currency?: string;
-      status?: string;
-      supplyPrice?: number;
-      minSellPrice?: number;
-      variantName?: string;
-      variantOptions?: Array<string | { name: string; price?: number; currency?: string; stock?: number }>;
-    }>,
+    rows: ProductBulkImportRow[],
   ): Promise<BulkImportResult> {
     const results: BulkImportRowResult[] = [];
+    const [suppliers, categories] = await Promise.all([
+      this.prisma.supplier.findMany({
+        where: { tenantId },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      }),
+      this.prisma.productCategory.findMany({
+        where: { tenantId },
+        select: { id: true, name: true, slug: true },
+        orderBy: [{ order: 'asc' }, { name: 'asc' }],
+      }),
+    ]);
+
     for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
       const row = rows[rowIndex];
       try {
+        const supplierId = await this.resolveSupplierId(tenantId, row, suppliers);
+        const categoryId = await this.resolveCategoryId(tenantId, row, categories);
         const slug =
           row.slug?.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') ||
           row.title?.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') ||
           `product-${rowIndex + 1}`;
+        const listPrice = Number(row.listPrice);
         const createDto = {
-          supplierId: row.supplierId,
-          categoryId: row.categoryId ?? null,
-          title: row.title?.trim() ?? 'Untitled',
+          supplierId,
+          categoryId,
+          title: row.title?.trim() || 'Untitled',
           description: row.description?.trim() ?? '',
           slug,
-          listPrice: Number(row.listPrice) || 0,
-          currency: row.currency ?? 'KES',
-          status: row.status === 'published' ? 'published' : 'draft',
-          supplyPrice: row.supplyPrice != null ? Number(row.supplyPrice) : Number(row.listPrice) || 0,
-          minSellPrice: row.minSellPrice != null ? Number(row.minSellPrice) : Number(row.listPrice) || 0,
+          price: listPrice,
+          listPrice,
+          currency: row.currency?.trim().slice(0, 3).toUpperCase() || 'KES',
+          status: row.status?.trim().toLowerCase() === 'published' ? 'published' : 'draft',
+          supplyPrice: row.supplyPrice != null ? Number(row.supplyPrice) : listPrice,
+          minSellPrice: row.minSellPrice != null ? Number(row.minSellPrice) : listPrice,
+          priceDisclaimer: row.priceDisclaimer?.trim() || undefined,
           variantName: row.variantName?.trim() || undefined,
           variantOptions: row.variantOptions,
         };

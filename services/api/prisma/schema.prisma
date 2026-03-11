@@ -23,6 +23,8 @@ model Tenant {
   media            Media[]
   products         Product[]
   productCategories ProductCategory[]
+  servicePackages  ServicePackage[]
+  storefrontSettings StorefrontSettings?
   posts       Post[]
   integrations Integration[]
   orders      Order[]
@@ -127,6 +129,7 @@ model Media {
   client      Client?       @relation(fields: [clientId], references: [id], onDelete: Cascade)
   postMedia   PostMedia[]
   productImages ProductImage[]
+  storefrontHeroFor StorefrontSettings[] @relation("StorefrontHeroImage")
 
   @@index([tenantId])
   @@index([clientId])
@@ -185,6 +188,8 @@ model Product {
   minSellPrice    Decimal  @db.Decimal(10, 2) @map("min_sell_price") // Floor price
   listPrice       Decimal  @db.Decimal(10, 2) @map("list_price") // Price shown on shop
   priceDisclaimer String?  @db.Text @map("price_disclaimer") // e.g. "slightly negotiable"
+  isFeatured      Boolean  @default(false) @map("is_featured")
+  featuredOrder   Int      @default(0) @map("featured_order")
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -202,7 +207,44 @@ model Product {
   @@index([supplierId])
   @@index([categoryId])
   @@index([status])
+  @@index([tenantId, isFeatured, featuredOrder])
   @@map("products")
+}
+
+model ServicePackage {
+  id               String   @id @default(uuid())
+  tenantId         String   @map("tenant_id")
+  name             String
+  slug             String
+  shortDescription String   @db.Text @map("short_description")
+  priceLabel       String   @map("price_label")
+  cadence          String?  @map("cadence")
+  featuresJson     Json     @default("[]") @map("features_json")
+  ctaLabel         String   @default("Book consultation") @map("cta_label")
+  isActive         Boolean  @default(true) @map("is_active")
+  displayOrder     Int      @default(0) @map("display_order")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, isActive, displayOrder])
+  @@map("service_packages")
+}
+
+model StorefrontSettings {
+  id               String   @id @default(uuid())
+  tenantId         String   @unique @map("tenant_id")
+  heroImageMediaId String?  @map("hero_image_media_id")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  heroImage Media? @relation("StorefrontHeroImage", fields: [heroImageMediaId], references: [id], onDelete: SetNull)
+
+  @@index([heroImageMediaId])
+  @@map("storefront_settings")
 }
 
 model ProductVariant {

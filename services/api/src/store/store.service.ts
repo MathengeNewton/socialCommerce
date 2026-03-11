@@ -1,9 +1,15 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { ServicePackagesService } from '../service-packages/service-packages.service';
+import { StorefrontSettingsService } from '../storefront-settings/storefront-settings.service';
 
 @Injectable()
 export class StoreService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private servicePackagesService: ServicePackagesService,
+    private storefrontSettingsService: StorefrontSettingsService,
+  ) {}
 
   async getCategories(tenantId?: string, withProductCount?: boolean) {
     if (!tenantId) return [];
@@ -110,6 +116,45 @@ export class StoreService {
         totalPages: Math.ceil(total / options.limit),
       },
     };
+  }
+
+  async getFeaturedProducts(tenantId?: string, limit = 6) {
+    if (!tenantId) return [];
+
+    return this.prisma.product.findMany({
+      where: {
+        tenantId,
+        status: 'published',
+        isFeatured: true,
+      },
+      take: Math.max(1, Math.min(limit, 12)),
+      include: {
+        category: { select: { id: true, name: true, slug: true } },
+        variants: true,
+        images: {
+          include: {
+            media: true,
+          },
+          orderBy: {
+            order: 'asc',
+          },
+          take: 1,
+        },
+      },
+      orderBy: [{ featuredOrder: 'asc' }, { createdAt: 'desc' }],
+    });
+  }
+
+  async getPackages(tenantId?: string) {
+    if (!tenantId) return [];
+    return this.servicePackagesService.findActive(tenantId);
+  }
+
+  async getHomeSettings(tenantId?: string) {
+    if (!tenantId) {
+      return { heroImageMediaId: null, heroImage: null };
+    }
+    return this.storefrontSettingsService.getSettings(tenantId);
   }
 
   async getProduct(slug: string, tenantId?: string) {

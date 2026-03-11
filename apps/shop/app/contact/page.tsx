@@ -60,7 +60,8 @@ export default function ContactPage() {
           Contact us
         </h1>
         <p className="text-shop-muted mb-10">
-          Have a question or feedback? Send us a message and we&apos;ll get back to you as soon as possible.
+          Ask about a social media management package, request a quote, or get help with a product and
+          we&apos;ll get back to you as soon as possible.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-6">

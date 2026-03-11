@@ -45,9 +45,27 @@ export class StoreController {
     });
   }
 
+  @Get('products/featured')
+  async getFeaturedProducts(
+    @Query('tenantId') tenantId?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.storeService.getFeaturedProducts(tenantId, limit ? parseInt(limit, 10) : undefined);
+  }
+
   @Get('products/:slug')
   async getProduct(@Param('slug') slug: string, @Query('tenantId') tenantId?: string) {
     return this.storeService.getProduct(slug, tenantId);
+  }
+
+  @Get('packages')
+  async getPackages(@Query('tenantId') tenantId?: string) {
+    return this.storeService.getPackages(tenantId);
+  }
+
+  @Get('home-settings')
+  async getHomeSettings(@Query('tenantId') tenantId?: string) {
+    return this.storeService.getHomeSettings(tenantId);
   }
 
   @Get('orders/:publicId')

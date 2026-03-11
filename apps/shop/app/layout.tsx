@@ -13,8 +13,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'hhourssop Shop',
-  description: 'Shop at hhourssop',
+  title: 'hhourssop',
+  description: 'Social media management packages and curated products from hhourssop.',
 };
 
 export default function RootLayout({
