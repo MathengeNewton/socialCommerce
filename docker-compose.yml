@@ -33,7 +33,6 @@ services:
       timeout: 5s
       retries: 5
 
-  # If you see "Storage resources are insufficient" from MinIO, free disk space on the host or use MEDIA_STORAGE=cloudinary so the API does not need MinIO.
   minio:
     image: minio/minio:latest
     container_name: social-commerce-minio
@@ -88,7 +87,8 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      # MinIO optional: only required when MEDIA_STORAGE=s3; when using Cloudinary the API can start without it
+      minio:
+        condition: service_healthy
     volumes:
       - ./services/api/src:/app/services/api/src
       - ./services/api/prisma:/app/services/api/prisma
@@ -125,7 +125,8 @@ services:
       - ./services/api/prisma:/app/services/api/prisma
       - ./services/api/src:/app/services/api/src
       - ./packages/shared:/app/packages/shared
-    command: sh -c "cd /app/services/api && pnpm exec prisma generate && cd ../.. && pnpm --filter worker dev"
+      - /app/node_modules
+    command: sh -c "cd /app && pnpm install --no-frozen-lockfile && cd services/api && pnpm exec prisma generate && cd ../.. && pnpm --filter worker dev"
 
   admin_web:
     build:
@@ -145,8 +146,10 @@ services:
     volumes:
       - ./apps/admin:/app/apps/admin
       - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/admin/node_modules
       - /app/apps/admin/.next
-    command: pnpm --filter admin dev
+    command: sh -c "cd /app && pnpm install --no-frozen-lockfile && cd apps/admin && pnpm exec next dev -p 3000"
 
   shop_web:
     build:
@@ -166,8 +169,10 @@ services:
     volumes:
       - ./apps/shop:/app/apps/shop
       - ./packages:/app/packages
+      - /app/node_modules
+      - /app/apps/shop/node_modules
       - /app/apps/shop/.next
-    command: pnpm --filter shop dev
+    command: sh -c "cd /app && pnpm install --no-frozen-lockfile && cd apps/shop && pnpm exec next dev -p 3000"
 
 volumes:
   postgres_data:
