@@ -78,6 +78,15 @@ admin.hhourssop.co.ke  { reverse_proxy localhost:3005 }
 shop.hhourssop.co.ke   { reverse_proxy localhost:3003 }
 ```
 
+**Nginx + Let's Encrypt (certbot)** – Do **not** use `certbot --standalone` (it needs port 80 and conflicts with Nginx). Use **webroot** so Nginx keeps running:
+
+```bash
+# Ensure /.well-known/acme-challenge/ is served (hhourssop.conf already does this)
+sudo certbot certonly --webroot -w /var/www/html -d admin.hhourssop.co.ke -d api.hhourssop.co.ke -d shop.hhourssop.co.ke
+```
+
+Then add SSL server blocks (listen 443, ssl_certificate, proxy_pass as above) and reload Nginx.
+
 5. **Optional** – Use `.env.deploy` only for URLs and `NODE_ENV`; keep all secrets in `.env` and load both:
    ```bash
    set -a && . .env && . .env.deploy && set +a && docker compose up -d --build
