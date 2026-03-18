@@ -5,14 +5,16 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 
 WORKDIR /app
 
-# Copy package files
-COPY package.json* ./
-COPY pnpm-workspace.yaml* ./
+# Copy package files so pnpm install sees the full workspace and installs next + app deps
+COPY package.json pnpm-workspace.yaml ./
+COPY apps/admin/package.json ./apps/admin/
+COPY apps/shop/package.json ./apps/shop/
+COPY packages/shared/package.json ./packages/shared/
+COPY services/api/package.json ./services/api/
+COPY services/worker/package.json ./services/worker/
 
-# Install dependencies (no frozen lockfile for now)
 RUN pnpm install --no-frozen-lockfile || echo "Installation had issues, continuing..."
 
-# Copy source code
 COPY . .
 
 WORKDIR /app
