@@ -87,8 +87,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      minio:
-        condition: service_healthy
+      # MinIO optional when MEDIA_STORAGE=cloudinary
     volumes:
       - ./services/api/src:/app/services/api/src
       - ./services/api/prisma:/app/services/api/prisma
@@ -97,7 +96,6 @@ services:
       - ./services/api/tsconfig.json:/app/services/api/tsconfig.json
       - ./services/api/jest.config.js:/app/services/api/jest.config.js
       - ./packages/shared:/app/packages/shared
-      - /app/node_modules
     command: /app/services/api/start-dev.sh
 
   worker:
@@ -125,8 +123,7 @@ services:
       - ./services/api/prisma:/app/services/api/prisma
       - ./services/api/src:/app/services/api/src
       - ./packages/shared:/app/packages/shared
-      - /app/node_modules
-    command: sh -c "cd /app && pnpm install --no-frozen-lockfile && cd services/api && pnpm exec prisma generate && cd ../.. && pnpm --filter worker dev"
+    command: sh -c "cd /app/services/api && pnpm exec prisma generate && cd ../.. && pnpm --filter worker dev"
 
   admin_web:
     build:
@@ -146,10 +143,8 @@ services:
     volumes:
       - ./apps/admin:/app/apps/admin
       - ./packages:/app/packages
-      - /app/node_modules
-      - /app/apps/admin/node_modules
       - /app/apps/admin/.next
-    command: sh -c "cd /app && pnpm install --no-frozen-lockfile && cd apps/admin && pnpm exec next dev -p 3000"
+    command: pnpm --filter admin dev
 
   shop_web:
     build:
@@ -169,10 +164,8 @@ services:
     volumes:
       - ./apps/shop:/app/apps/shop
       - ./packages:/app/packages
-      - /app/node_modules
-      - /app/apps/shop/node_modules
       - /app/apps/shop/.next
-    command: sh -c "cd /app && pnpm install --no-frozen-lockfile && cd apps/shop && pnpm exec next dev -p 3000"
+    command: pnpm --filter shop dev
 
 volumes:
   postgres_data:

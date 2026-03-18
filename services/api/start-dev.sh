@@ -1,7 +1,5 @@
 #!/bin/sh
 cd /app
-pnpm install --no-frozen-lockfile
-pnpm rebuild bcrypt 2>/dev/null || true
 
 # Create symlink for zod in shared package node_modules so it can be resolved
 mkdir -p /app/packages/shared/node_modules
