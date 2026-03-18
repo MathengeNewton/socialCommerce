@@ -144,7 +144,7 @@ services:
       - ./apps/admin:/app/apps/admin
       - ./packages:/app/packages
       - /app/apps/admin/.next
-    command: pnpm --filter admin dev
+    command: sh -c "export PATH=\"/app/node_modules/.bin:$PATH\" && pnpm --filter admin dev"
 
   shop_web:
     build:
@@ -165,7 +165,7 @@ services:
       - ./apps/shop:/app/apps/shop
       - ./packages:/app/packages
       - /app/apps/shop/.next
-    command: pnpm --filter shop dev
+    command: sh -c "export PATH=\"/app/node_modules/.bin:$PATH\" && pnpm --filter shop dev"
 
 volumes:
   postgres_data:
