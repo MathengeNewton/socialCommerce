@@ -18,8 +18,8 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-# Sanity check: next must exist in the image
-RUN test -e /app/node_modules/.bin/next || (echo "next binary missing after install" && exit 1)
+# pnpm may not hoist `next` to /app/node_modules/.bin — verify via the workspace package
+RUN cd /app && pnpm --filter @social-commerce/shop exec next --version
 
 WORKDIR /app
 
