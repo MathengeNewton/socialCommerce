@@ -1,5 +1,8 @@
 # Project name: keeps this stack isolated from others on the same host (e.g. tosha-city).
 # Host ports: 3003 shop, 3004 api, 3005 admin, 8488 postgres, 6380 redis, 8900/8901 minio.
+#
+# Production VPS (nginx): use docker-compose.prod.yml so shop/admin run `next start`
+# instead of slow on-demand `next dev` — see docker-compose.prod.yml
 name: hhourssop
 
 services:

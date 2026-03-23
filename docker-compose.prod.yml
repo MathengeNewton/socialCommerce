@@ -1,0 +1,21 @@
+# Production-style Next.js (build + start) — use on VPS behind nginx.
+# Dev mode (`next dev`) compiles on first request and can look "hung" for many minutes.
+#
+# Usage (from repo root):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d shop_web admin_web
+#
+# First deploy: `next build` runs once (wait for logs: "Ready on http://localhost:3000").
+# Restarts: skips build if apps/<app>/.next/BUILD_ID exists (volume persists .next).
+
+services:
+  shop_web:
+    command: >-
+      sh -c 'cd /app &&
+      if [ ! -f apps/shop/.next/BUILD_ID ]; then pnpm --filter @social-commerce/shop build; fi &&
+      pnpm --filter @social-commerce/shop exec next start -p 3000'
+
+  admin_web:
+    command: >-
+      sh -c 'cd /app &&
+      if [ ! -f apps/admin/.next/BUILD_ID ]; then pnpm --filter @social-commerce/admin build; fi &&
+      pnpm --filter @social-commerce/admin exec next start -p 3000'
