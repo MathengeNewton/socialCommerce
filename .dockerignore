@@ -1,0 +1,9 @@
+# Host copies only source into images; never bake host node_modules/.next into layers
+**/node_modules
+**/.next
+.git
+.gitignore
+.env
+.env.*
+*.md
+.DS_Store

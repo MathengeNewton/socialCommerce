@@ -140,11 +140,17 @@ services:
       - "3005:3000"
     depends_on:
       - api
+    # Mount only app source + shared packages — deps stay from the image (no host node_modules)
     volumes:
-      - ./apps/admin:/app/apps/admin
+      - ./apps/admin/app:/app/apps/admin/app
+      - ./apps/admin/public:/app/apps/admin/public
+      - ./apps/admin/next.config.mjs:/app/apps/admin/next.config.mjs
+      - ./apps/admin/tailwind.config.mjs:/app/apps/admin/tailwind.config.mjs
+      - ./apps/admin/postcss.config.mjs:/app/apps/admin/postcss.config.mjs
+      - ./apps/admin/tsconfig.json:/app/apps/admin/tsconfig.json
       - ./packages:/app/packages
-      - /app/apps/admin/.next
-    command: sh -c "export PATH=\"/app/node_modules/.bin:$PATH\" && pnpm --filter admin dev"
+      - admin_next_cache:/app/apps/admin/.next
+    command: sh -c "cd /app && pnpm --filter @social-commerce/admin exec next dev -p 3000"
 
   shop_web:
     build:
@@ -161,13 +167,22 @@ services:
       - "3003:3000"
     depends_on:
       - api
+    # Mount only app source + shared packages — deps stay from the image (no host node_modules)
     volumes:
-      - ./apps/shop:/app/apps/shop
+      - ./apps/shop/app:/app/apps/shop/app
+      - ./apps/shop/public:/app/apps/shop/public
+      - ./apps/shop/next.config.mjs:/app/apps/shop/next.config.mjs
+      - ./apps/shop/tailwind.config.mjs:/app/apps/shop/tailwind.config.mjs
+      - ./apps/shop/postcss.config.mjs:/app/apps/shop/postcss.config.mjs
+      - ./apps/shop/middleware.ts:/app/apps/shop/middleware.ts
+      - ./apps/shop/tsconfig.json:/app/apps/shop/tsconfig.json
       - ./packages:/app/packages
-      - /app/apps/shop/.next
-    command: sh -c "export PATH=\"/app/node_modules/.bin:$PATH\" && pnpm --filter shop dev"
+      - shop_next_cache:/app/apps/shop/.next
+    command: sh -c "cd /app && pnpm --filter @social-commerce/shop exec next dev -p 3000"
 
 volumes:
   postgres_data:
   redis_data:
   minio_data:
+  admin_next_cache:
+  shop_next_cache:
