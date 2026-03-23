@@ -1,5 +1,5 @@
 # Project name: keeps this stack isolated from others on the same host (e.g. tosha-city).
-# Host ports: 3003 shop, 3004 api, 3005 admin, 5488 postgres, 6380 redis, 9000/9001 minio.
+# Host ports: 3003 shop, 3004 api, 3005 admin, 8488 postgres, 6380 redis, 8900/8901 minio.
 name: hhourssop
 
 services:
@@ -11,7 +11,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${POSTGRES_DB:-social_commerce}
     ports:
-      - "5488:5432"
+      - "8488:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -40,8 +40,8 @@ services:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "8900:9000"
+      - "8901:9001"
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
