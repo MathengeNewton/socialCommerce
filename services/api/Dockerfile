@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM node:18-alpine AS base
 
 # Install build dependencies for native modules and OpenSSL for Prisma
@@ -17,8 +18,11 @@ COPY services/api/package.json ./services/api/
 # Copy shared package if it exists
 COPY packages/shared/package.json* ./packages/shared/
 
-# Install dependencies (allow scripts to run) and rebuild native modules
-RUN pnpm config set enable-pre-post-scripts true && \
+# Install dependencies (allow scripts to run) and rebuild native modules.
+# Use cached pnpm store so packages are downloaded once then reused.
+RUN pnpm config set store-dir /pnpm/store && \
+    pnpm config set enable-pre-post-scripts true
+RUN --mount=type=cache,id=hhourssop-pnpm-store,target=/pnpm/store \
     pnpm install --no-frozen-lockfile && \
     pnpm rebuild bcrypt || echo "Installation had issues, continuing..."
 

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM node:20-slim AS base
 
 # Install pnpm
@@ -13,8 +14,10 @@ COPY packages/shared/package.json ./packages/shared/
 COPY services/api/package.json ./services/api/
 COPY services/worker/package.json ./services/worker/
 
-# Must succeed — do not swallow failures or images ship without deps
-RUN pnpm install --frozen-lockfile
+# Persist pnpm package store across builds to avoid re-downloading deps.
+RUN pnpm config set store-dir /pnpm/store
+RUN --mount=type=cache,id=hhourssop-pnpm-store,target=/pnpm/store \
+    pnpm install --frozen-lockfile
 
 COPY . .
 
