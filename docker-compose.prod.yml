@@ -22,6 +22,8 @@ services:
         node /app/services/api/dist/src/main.js;
       elif [ -f /app/services/api/dist/api/src/main.js ]; then
         node /app/services/api/dist/api/src/main.js;
+      elif [ -f /app/services/api/dist/services/api/src/main.js ]; then
+        node /app/services/api/dist/services/api/src/main.js;
       else
         echo "API build output not found in expected dist paths" &&
         ls -la /app/services/api/dist || true &&
