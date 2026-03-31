@@ -16,7 +16,17 @@ services:
       pnpm prisma generate &&
       pnpm migrate:deploy &&
       pnpm build &&
-      node dist/main.js'
+      if [ -f /app/services/api/dist/main.js ]; then
+        node /app/services/api/dist/main.js;
+      elif [ -f /app/services/api/dist/src/main.js ]; then
+        node /app/services/api/dist/src/main.js;
+      elif [ -f /app/services/api/dist/api/src/main.js ]; then
+        node /app/services/api/dist/api/src/main.js;
+      else
+        echo "API build output not found in expected dist paths" &&
+        ls -la /app/services/api/dist || true &&
+        exit 1;
+      fi'
 
   worker:
     environment:
