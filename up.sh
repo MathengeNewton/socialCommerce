@@ -7,6 +7,7 @@
 # First deploy builds images; later runs omit WITH_BUILD=1 unless Dockerfiles/deps changed.
 # WITH_BUILD=1 runs `scripts/compose-build-batched.sh` then `compose up` (no parallel build storm).
 #   BUILD_BATCH_SIZE=2 (default) — max services built at once; set to 1 for fully sequential builds.
+#   START_STAGED=1 (default) — starts infra -> api/worker -> web with health waits.
 #
 # I/O watchdog (optional; for diagnosing runaway disk load — not for normal prod):
 #   IO_WATCHDOG=1 ./up.sh
@@ -31,11 +32,27 @@ DETACH="${DETACH:-0}"
 # Default off: stable prod; set IO_WATCHDOG=1 when diagnosing I/O stalls (uses scripts/io-watchdog.sh).
 IO_WATCHDOG="${IO_WATCHDOG:-0}"
 BUILD_BATCH_SIZE="${BUILD_BATCH_SIZE:-2}"
+START_STAGED="${START_STAGED:-1}"
 export ROOT COMPOSE PROD_ARGS
 
 _compose_build_batched() {
   echo "[up] Building images in batches of ${BUILD_BATCH_SIZE} (scripts/compose-build-batched.sh)..."
   BUILD_BATCH_SIZE="$BUILD_BATCH_SIZE" "$ROOT/scripts/compose-build-batched.sh"
+}
+
+_compose_up_detached_staged() {
+  if [ "$START_STAGED" = "0" ]; then
+    echo "[up] START_STAGED=0: starting all services together."
+    $COMPOSE $PROD_ARGS up -d
+    return
+  fi
+
+  echo "[up] Stage 1/3: infra (postgres, redis, minio)"
+  $COMPOSE $PROD_ARGS up -d --wait postgres redis minio
+  echo "[up] Stage 2/3: backend (api, worker)"
+  $COMPOSE $PROD_ARGS up -d --wait api worker
+  echo "[up] Stage 3/3: web (shop_web, admin_web)"
+  $COMPOSE $PROD_ARGS up -d --wait shop_web admin_web
 }
 
 # #region agent log
@@ -105,10 +122,8 @@ if [ "$DETACH" = "1" ]; then
   echo "[up] Detached mode (DETACH=1): starting stack in background."
   if [ "$WITH_BUILD" = "1" ]; then
     _compose_build_batched
-    $COMPOSE $PROD_ARGS up -d
-  else
-    $COMPOSE $PROD_ARGS up -d
   fi
+  _compose_up_detached_staged
   echo "[up] Done. Follow logs: $COMPOSE $PROD_ARGS logs -f"
   echo "[up] Status: $COMPOSE $PROD_ARGS ps"
   exit 0
