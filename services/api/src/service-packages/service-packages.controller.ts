@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { TenantAdminGuard } from '../auth/guards/tenant-admin.guard';
 import { TenantGuard } from '../tenant/tenant.guard';
 import { ServicePackagesService } from './service-packages.service';
+import type { ServicePackagePayload } from './service-packages.service';
 
 @Controller('service-packages')
 @UseGuards(JwtAuthGuard, TenantGuard)
@@ -19,7 +20,18 @@ export class ServicePackagesController {
   @UseGuards(TenantAdminGuard)
   async create(@Request() req, @Body() body: unknown) {
     const validated = createServicePackageSchema.parse(body);
-    return this.servicePackagesService.create(req.user.tenantId, validated);
+    const payload: ServicePackagePayload = {
+      name: validated.name,
+      slug: validated.slug,
+      shortDescription: validated.shortDescription,
+      priceLabel: validated.priceLabel,
+      cadence: validated.cadence,
+      features: validated.features,
+      ctaLabel: validated.ctaLabel,
+      isActive: validated.isActive,
+      displayOrder: validated.displayOrder,
+    };
+    return this.servicePackagesService.create(req.user.tenantId, payload);
   }
 
   @Put(':id')

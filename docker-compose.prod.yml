@@ -26,7 +26,17 @@ services:
       pnpm prisma generate &&
       cd /app &&
       pnpm --filter worker build &&
-      pnpm --filter worker start'
+      if [ -f /app/services/worker/dist/main.js ]; then
+        node /app/services/worker/dist/main.js;
+      elif [ -f /app/services/worker/dist/src/main.js ]; then
+        node /app/services/worker/dist/src/main.js;
+      elif [ -f /app/services/worker/dist/worker/src/main.js ]; then
+        node /app/services/worker/dist/worker/src/main.js;
+      else
+        echo "Worker build output not found in expected dist paths" &&
+        ls -la /app/services/worker/dist || true &&
+        exit 1;
+      fi'
 
   shop_web:
     environment:

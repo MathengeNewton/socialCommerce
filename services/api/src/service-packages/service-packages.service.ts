@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 
-type ServicePackagePayload = {
+export type ServicePackagePayload = {
   name: string;
   slug?: string;
   shortDescription: string;
