@@ -8,6 +8,10 @@
 # WITH_BUILD=1 runs `scripts/compose-build-batched.sh` then `compose up` (no parallel build storm).
 #   BUILD_BATCH_SIZE=2 (default) — max services built at once; set to 1 for fully sequential builds.
 #   START_STAGED=1 (default) — starts infra -> api/worker -> web with health waits.
+# Memory guard (enabled by default):
+#   MEM_GUARD=1
+#   MEM_GUARD_BATCH1_MB=1024  -> force BUILD_BATCH_SIZE=1 below this
+#   MEM_GUARD_DANGER_MB=384   -> refuse WITH_BUILD=1 below this
 #
 # I/O watchdog (optional; for diagnosing runaway disk load — not for normal prod):
 #   IO_WATCHDOG=1 ./up.sh
@@ -33,11 +37,35 @@ DETACH="${DETACH:-0}"
 IO_WATCHDOG="${IO_WATCHDOG:-0}"
 BUILD_BATCH_SIZE="${BUILD_BATCH_SIZE:-2}"
 START_STAGED="${START_STAGED:-1}"
+MEM_GUARD="${MEM_GUARD:-1}"
+MEM_GUARD_BATCH1_MB="${MEM_GUARD_BATCH1_MB:-1024}"
+MEM_GUARD_DANGER_MB="${MEM_GUARD_DANGER_MB:-384}"
 export ROOT COMPOSE PROD_ARGS
 
 _compose_build_batched() {
   echo "[up] Building images in batches of ${BUILD_BATCH_SIZE} (scripts/compose-build-batched.sh)..."
   BUILD_BATCH_SIZE="$BUILD_BATCH_SIZE" "$ROOT/scripts/compose-build-batched.sh"
+}
+
+_mem_available_mb() {
+  awk '/^MemAvailable:/ { printf "%d\n", $2 / 1024 }' /proc/meminfo 2>/dev/null || echo 0
+}
+
+_apply_memory_guard() {
+  [ "$MEM_GUARD" = "0" ] && return
+  local avail_mb
+  avail_mb="$(_mem_available_mb)"
+
+  if [ "$avail_mb" -lt "$MEM_GUARD_BATCH1_MB" ] && [ "$BUILD_BATCH_SIZE" -ne 1 ]; then
+    echo "[up][guard] Low memory: ${avail_mb}MB available. Forcing BUILD_BATCH_SIZE=1."
+    BUILD_BATCH_SIZE=1
+  fi
+
+  if [ "$WITH_BUILD" = "1" ] && [ "$avail_mb" -lt "$MEM_GUARD_DANGER_MB" ]; then
+    echo "[up][guard] Refusing WITH_BUILD=1: only ${avail_mb}MB available (< ${MEM_GUARD_DANGER_MB}MB)."
+    echo "[up][guard] Action: add swap / reduce load, or run WITH_BUILD=0 for a no-build restart."
+    exit 1
+  fi
 }
 
 _compose_up_detached_staged() {
@@ -117,6 +145,7 @@ echo "[up] Stop and remove existing stack..."
 $COMPOSE $PROD_ARGS down --remove-orphans 2>/dev/null || true
 
 _agent_debug_snapshot "H1_H2_H3_H4_H5" "after_compose_down_before_up"
+_apply_memory_guard
 
 if [ "$DETACH" = "1" ]; then
   echo "[up] Detached mode (DETACH=1): starting stack in background."

@@ -8,6 +8,24 @@
 # Restarts: skips build if apps/<app>/.next/BUILD_ID exists (volume persists .next).
 
 services:
+  api:
+    environment:
+      NODE_ENV: production
+    command: >-
+      sh -c 'cd /app/services/api &&
+      pnpm prisma generate &&
+      pnpm migrate:deploy &&
+      pnpm build &&
+      node dist/main.js'
+
+  worker:
+    environment:
+      NODE_ENV: production
+    command: >-
+      sh -c 'cd /app &&
+      pnpm --filter worker build &&
+      pnpm --filter worker start'
+
   shop_web:
     command: >-
       sh -c 'cd /app &&
