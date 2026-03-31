@@ -12,7 +12,9 @@ services:
     environment:
       NODE_ENV: production
     command: >-
-      sh -c 'cd /app/services/api &&
+      sh -c 'cd /app &&
+      pnpm --filter @social-commerce/shared build &&
+      cd /app/services/api &&
       pnpm prisma generate &&
       pnpm migrate:deploy &&
       pnpm build &&
@@ -37,6 +39,7 @@ services:
       sh -c 'cd /app/services/api &&
       pnpm prisma generate &&
       cd /app &&
+      pnpm --filter @social-commerce/shared build &&
       pnpm --filter worker build &&
       if [ -f /app/services/worker/dist/main.js ]; then
         node /app/services/worker/dist/main.js;
