@@ -18,8 +18,7 @@
     "forceConsistentCasingInFileNames": false,
     "noFallthroughCasesInSwitch": false,
     "paths": {
-      "@/*": ["src/*"],
-      "@social-commerce/shared": ["../../packages/shared/src"]
+      "@/*": ["src/*"]
     },
     "moduleResolution": "node",
     "esModuleInterop": true
